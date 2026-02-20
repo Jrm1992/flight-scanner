@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,9 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/jose/flight-scanner/internal/config"
 	"github.com/jose/flight-scanner/internal/database"
+	"github.com/jose/flight-scanner/internal/flightapi"
+	"github.com/jose/flight-scanner/internal/monitor"
+	"github.com/jose/flight-scanner/internal/repository"
 )
 
 func main() {
@@ -38,11 +42,28 @@ func main() {
 	}
 	log.Println("migrations complete")
 
-	// HTTP server (placeholder — handlers coming in Sprint 5)
+	// Repositories
+	routeRepo := repository.NewRouteRepo(db)
+	priceHistoryRepo := repository.NewPriceHistoryRepo(db)
+	alertRepo := repository.NewAlertRepo(db)
+
+	// SerpApi (Google Flights) client
+	flightClient := flightapi.NewClient(cfg.SerpAPIKey)
+
+	// Background price monitor
+	mon := monitor.New(routeRepo, priceHistoryRepo, alertRepo, flightClient)
+	monCtx, monCancel := context.WithCancel(context.Background())
+	defer monCancel()
+
+	if err := mon.Start(monCtx); err != nil {
+		log.Printf("warning: failed to start monitor: %v", err)
+	}
+
+	// HTTP server (handlers coming in Sprint 5)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
+		fmt.Fprintf(w, `{"status":"ok","monitoring":%d}`, mon.RunningCount())
 	})
 
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
@@ -54,6 +75,8 @@ func main() {
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		sig := <-sigCh
 		log.Printf("received %s, shutting down...", sig)
+		mon.StopAll()
+		monCancel()
 		server.Close()
 	}()
 

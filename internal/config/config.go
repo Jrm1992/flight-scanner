@@ -8,8 +8,8 @@ import (
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
-	DatabaseURL string
-	KiwiAPIKey  string
+	DatabaseURL  string
+	SerpAPIKey   string
 	ServerPort  int
 	Env         string
 	FrontendURL string
@@ -43,8 +43,8 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		DatabaseURL: dbURL,
-		KiwiAPIKey:  os.Getenv("KIWI_API_KEY"),
+		DatabaseURL:  dbURL,
+		SerpAPIKey:   os.Getenv("SERPAPI_KEY"),
 		ServerPort:  port,
 		Env:         env,
 		FrontendURL: frontendURL,
