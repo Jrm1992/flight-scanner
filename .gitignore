@@ -1,3 +1,5 @@
 .env
 certs/
 flight-scanner
+testsearch
+.omc/
