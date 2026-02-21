@@ -69,13 +69,13 @@ type PriceInsights struct {
 
 // FlightResult is our internal simplified representation used by the rest of the app.
 type FlightResult struct {
-	Price         float64
-	Airline       string
-	FlightNumber  string
-	DepartureCode string
-	ArrivalCode   string
-	Departure     time.Time
-	Arrival       time.Time
-	Duration      int // total minutes
-	Stops         int
+	Price         float64   `json:"price"`
+	Airline       string    `json:"airline"`
+	FlightNumber  string    `json:"flight_number"`
+	DepartureCode string    `json:"departure_code"`
+	ArrivalCode   string    `json:"arrival_code"`
+	Departure     time.Time `json:"departure"`
+	Arrival       time.Time `json:"arrival"`
+	Duration      int       `json:"duration_minutes"`
+	Stops         int       `json:"stops"`
 }
