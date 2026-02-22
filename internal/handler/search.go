@@ -1,0 +1,96 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/jose/flight-scanner/internal/flightapi"
+)
+
+// SearchHandler handles POST /api/search/flights.
+type SearchHandler struct {
+	client *flightapi.Client
+}
+
+// NewSearchHandler creates a SearchHandler.
+func NewSearchHandler(client *flightapi.Client) *SearchHandler {
+	return &SearchHandler{client: client}
+}
+
+type searchRequest struct {
+	Origin      string `json:"origin"`
+	Destination string `json:"destination"`
+	Date        string `json:"date"`        // optional, YYYY-MM-DD
+	ReturnDate  string `json:"return_date"` // optional, YYYY-MM-DD
+	Currency    string `json:"currency"`    // optional, default USD
+}
+
+func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var req searchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	req.Origin = strings.ToUpper(strings.TrimSpace(req.Origin))
+	req.Destination = strings.ToUpper(strings.TrimSpace(req.Destination))
+
+	if !iataRegex.MatchString(req.Origin) || !iataRegex.MatchString(req.Destination) {
+		writeError(w, http.StatusBadRequest, "origin and destination must be 3-letter IATA codes")
+		return
+	}
+
+	outbound := time.Now().AddDate(0, 0, 1)
+	if req.Date != "" {
+		parsed, err := time.Parse("2006-01-02", req.Date)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "date must be YYYY-MM-DD format")
+			return
+		}
+		outbound = parsed
+	}
+
+	params := flightapi.SearchParams{
+		DepartureID:  req.Origin,
+		ArrivalID:    req.Destination,
+		OutboundDate: outbound,
+		Currency:     req.Currency,
+		Adults:       1,
+		TravelClass:  1,
+	}
+
+	if req.ReturnDate != "" {
+		ret, err := time.Parse("2006-01-02", req.ReturnDate)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "return_date must be YYYY-MM-DD format")
+			return
+		}
+		params.ReturnDate = &ret
+	}
+
+	if params.Currency == "" {
+		params.Currency = "USD"
+	}
+
+	results, err := h.client.Search(r.Context(), params)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "flight search failed: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"origin":      req.Origin,
+		"destination": req.Destination,
+		"date":        outbound.Format("2006-01-02"),
+		"currency":    params.Currency,
+		"results":     results,
+		"count":       len(results),
+	})
+}
