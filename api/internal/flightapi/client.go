@@ -3,9 +3,10 @@ package flightapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -55,7 +56,7 @@ func (c *Client) Search(ctx context.Context, params SearchParams) ([]FlightResul
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			delay := baseDelay * time.Duration(math.Pow(2, float64(attempt-1)))
-			log.Printf("[serpapi] retry %d/%d after %v", attempt, maxRetries, delay)
+			slog.Info("serpapi retry", "attempt", attempt, "max", maxRetries, "delay", delay)
 
 			select {
 			case <-ctx.Done():
@@ -74,7 +75,7 @@ func (c *Client) Search(ctx context.Context, params SearchParams) ([]FlightResul
 			return nil, fmt.Errorf("serpapi search: %w", err)
 		}
 
-		log.Printf("[serpapi] attempt %d failed: %v", attempt+1, err)
+		slog.Warn("serpapi attempt failed", "attempt", attempt+1, "err", err)
 	}
 
 	return nil, fmt.Errorf("serpapi search: all %d retries exhausted: %w", maxRetries, lastErr)
@@ -83,7 +84,6 @@ func (c *Client) Search(ctx context.Context, params SearchParams) ([]FlightResul
 func (c *Client) buildSearchURL(params SearchParams) string {
 	q := url.Values{}
 	q.Set("engine", "google_flights")
-	q.Set("api_key", c.apiKey)
 	q.Set("departure_id", params.DepartureID)
 	q.Set("arrival_id", params.ArrivalID)
 	q.Set("outbound_date", params.OutboundDate.Format("2006-01-02"))
@@ -115,11 +115,20 @@ func (c *Client) doSearch(ctx context.Context, rawURL string) ([]FlightResult, e
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
+	// Add API key as query parameter at request time to keep it out of logged URLs.
+	q := req.URL.Query()
+	q.Set("api_key", c.apiKey)
+	req.URL.RawQuery = q.Encode()
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, &retryableError{err: fmt.Errorf("http request: %w", err)}
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("body close error", "err", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -197,8 +206,8 @@ func (e *retryableError) Error() string { return e.err.Error() }
 func (e *retryableError) Unwrap() error { return e.err }
 
 func isRetryable(err error) bool {
-	_, ok := err.(*retryableError)
-	return ok
+	var re *retryableError
+	return errors.As(err, &re)
 }
 
 func truncate(b []byte, max int) string {

@@ -2,12 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/jose/flight-scanner/internal/models"
-	"github.com/jose/flight-scanner/internal/monitor"
 	"github.com/jose/flight-scanner/internal/repository"
 )
 
@@ -15,39 +15,27 @@ var iataRegex = regexp.MustCompile(`^[A-Z]{3}$`)
 
 // RouteHandler handles /api/routes endpoints.
 type RouteHandler struct {
-	repo    *repository.RouteRepo
-	monitor *monitor.Monitor
+	repo      RouteRepository
+	monitor   RouteMonitor
+	priceRepo PriceHistoryRepository
 }
 
 // NewRouteHandler creates a RouteHandler.
-func NewRouteHandler(repo *repository.RouteRepo, mon *monitor.Monitor) *RouteHandler {
-	return &RouteHandler{repo: repo, monitor: mon}
+func NewRouteHandler(repo RouteRepository, mon RouteMonitor, priceRepo PriceHistoryRepository) *RouteHandler {
+	return &RouteHandler{repo: repo, monitor: mon, priceRepo: priceRepo}
 }
 
-// ServeHTTP routes requests based on method and path.
-func (h *RouteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/api/routes")
-	path = strings.TrimRight(path, "/")
-
-	switch {
-	case path == "" && r.Method == http.MethodGet:
-		h.list(w, r)
-	case path == "" && r.Method == http.MethodPost:
-		h.create(w, r)
-	case r.Method == http.MethodPut:
-		h.update(w, r, extractID(path))
-	case r.Method == http.MethodDelete:
-		h.delete(w, r, extractID(path))
-	case strings.HasSuffix(path, "/pause") && r.Method == http.MethodPatch:
-		h.pause(w, r, extractID(strings.TrimSuffix(path, "/pause")))
-	case strings.HasSuffix(path, "/resume") && r.Method == http.MethodPatch:
-		h.resume(w, r, extractID(strings.TrimSuffix(path, "/resume")))
-	default:
-		writeError(w, http.StatusNotFound, "not found")
-	}
+// RegisterRoutes registers route handler endpoints on the given mux.
+func (h *RouteHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/routes", h.List)
+	mux.HandleFunc("POST /api/routes", h.Create)
+	mux.HandleFunc("PUT /api/routes/{id}", h.Update)
+	mux.HandleFunc("DELETE /api/routes/{id}", h.Delete)
+	mux.HandleFunc("PATCH /api/routes/{id}/pause", h.Pause)
+	mux.HandleFunc("PATCH /api/routes/{id}/resume", h.Resume)
 }
 
-func (h *RouteHandler) create(w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateRouteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -77,12 +65,12 @@ func (h *RouteHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start monitoring immediately
-	h.monitor.StartRoute(r.Context(), *route)
+	h.monitor.StartRoute(*route)
 
 	writeJSON(w, http.StatusCreated, route)
 }
 
-func (h *RouteHandler) list(w http.ResponseWriter, r *http.Request) {
+func (h *RouteHandler) List(w http.ResponseWriter, r *http.Request) {
 	routes, err := h.repo.ListAll(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list routes")
@@ -91,10 +79,29 @@ func (h *RouteHandler) list(w http.ResponseWriter, r *http.Request) {
 	if routes == nil {
 		routes = []models.Route{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"routes": routes})
+
+	// Enrich with latest prices
+	ids := make([]string, len(routes))
+	for i, rt := range routes {
+		ids[i] = rt.ID
+	}
+
+	prices, _ := h.priceRepo.GetLatestPrices(r.Context(), ids)
+
+	enriched := make([]models.RouteWithPrice, len(routes))
+	for i, rt := range routes {
+		enriched[i] = models.RouteWithPrice{Route: rt}
+		if ph, ok := prices[rt.ID]; ok {
+			enriched[i].CurrentPrice = &ph.MinPrice
+			enriched[i].LastCheckAt = &ph.CheckedAt
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"routes": enriched})
 }
 
-func (h *RouteHandler) update(w http.ResponseWriter, r *http.Request, id string) {
+func (h *RouteHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing route id")
 		return
@@ -117,21 +124,22 @@ func (h *RouteHandler) update(w http.ResponseWriter, r *http.Request, id string)
 
 	route, err := h.repo.Update(r.Context(), id, req)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update route")
-		return
-	}
-	if route == nil {
-		writeError(w, http.StatusNotFound, "route not found")
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "route not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to update route")
+		}
 		return
 	}
 
 	// Restart monitor with updated config
-	h.monitor.RestartRoute(r.Context(), *route)
+	h.monitor.RestartRoute(*route)
 
 	writeJSON(w, http.StatusOK, route)
 }
 
-func (h *RouteHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
+func (h *RouteHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing route id")
 		return
@@ -140,21 +148,30 @@ func (h *RouteHandler) delete(w http.ResponseWriter, r *http.Request, id string)
 	h.monitor.StopRoute(id)
 
 	if err := h.repo.Delete(r.Context(), id); err != nil {
-		writeError(w, http.StatusNotFound, "route not found")
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "route not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to delete route")
+		}
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"deleted": id})
 }
 
-func (h *RouteHandler) pause(w http.ResponseWriter, r *http.Request, id string) {
+func (h *RouteHandler) Pause(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing route id")
 		return
 	}
 
 	if err := h.repo.SetStatus(r.Context(), id, "paused"); err != nil {
-		writeError(w, http.StatusNotFound, "route not found")
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "route not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to pause route")
+		}
 		return
 	}
 
@@ -163,33 +180,33 @@ func (h *RouteHandler) pause(w http.ResponseWriter, r *http.Request, id string) 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "paused"})
 }
 
-func (h *RouteHandler) resume(w http.ResponseWriter, r *http.Request, id string) {
+func (h *RouteHandler) Resume(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing route id")
 		return
 	}
 
 	if err := h.repo.SetStatus(r.Context(), id, "active"); err != nil {
-		writeError(w, http.StatusNotFound, "route not found")
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "route not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to resume route")
+		}
 		return
 	}
 
 	route, err := h.repo.GetByID(r.Context(), id)
-	if err != nil || route == nil {
-		writeError(w, http.StatusNotFound, "route not found")
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "route not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to get route")
+		}
 		return
 	}
 
-	h.monitor.StartRoute(r.Context(), *route)
+	h.monitor.StartRoute(*route)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "active"})
-}
-
-// extractID pulls the route ID from a path like "/uuid" or "/uuid/action".
-func extractID(path string) string {
-	path = strings.TrimPrefix(path, "/")
-	if i := strings.Index(path, "/"); i != -1 {
-		return path[:i]
-	}
-	return path
 }

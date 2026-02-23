@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/jose/flight-scanner/internal/models"
@@ -50,8 +51,8 @@ func (r *RouteRepo) GetByID(ctx context.Context, id string) (*models.Route, erro
 		&route.ID, &route.Origin, &route.Destination, &route.AlertPrice,
 		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
-		return nil, nil
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get route: %w", err)
@@ -69,7 +70,7 @@ func (r *RouteRepo) ListActive(ctx context.Context) ([]models.Route, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list active routes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanRoutes(rows)
 }
@@ -83,7 +84,7 @@ func (r *RouteRepo) ListAll(ctx context.Context) ([]models.Route, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list routes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanRoutes(rows)
 }
@@ -102,8 +103,8 @@ func (r *RouteRepo) Update(ctx context.Context, id string, req models.UpdateRout
 		&route.ID, &route.Origin, &route.Destination, &route.AlertPrice,
 		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
-		return nil, nil
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("update route: %w", err)
@@ -121,7 +122,7 @@ func (r *RouteRepo) SetStatus(ctx context.Context, id, status string) error {
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("route %s not found", id)
+		return ErrNotFound
 	}
 	return nil
 }
@@ -134,7 +135,7 @@ func (r *RouteRepo) Delete(ctx context.Context, id string) error {
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("route %s not found", id)
+		return ErrNotFound
 	}
 	return nil
 }

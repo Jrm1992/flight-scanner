@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/jose/flight-scanner/internal/models"
 	"github.com/jose/flight-scanner/internal/repository"
@@ -10,31 +10,21 @@ import (
 
 // AlertHandler handles /api/alerts endpoints.
 type AlertHandler struct {
-	repo *repository.AlertRepo
+	repo AlertRepository
 }
 
 // NewAlertHandler creates an AlertHandler.
-func NewAlertHandler(repo *repository.AlertRepo) *AlertHandler {
+func NewAlertHandler(repo AlertRepository) *AlertHandler {
 	return &AlertHandler{repo: repo}
 }
 
-// ServeHTTP routes alert requests.
-func (h *AlertHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/api/alerts")
-	path = strings.TrimRight(path, "/")
-
-	switch {
-	case path == "" && r.Method == http.MethodGet:
-		h.list(w, r)
-	case strings.HasSuffix(path, "/mark-read") && r.Method == http.MethodPatch:
-		id := extractID(strings.TrimSuffix(path, "/mark-read"))
-		h.markRead(w, r, id)
-	default:
-		writeError(w, http.StatusNotFound, "not found")
-	}
+// RegisterRoutes registers alert handler endpoints on the given mux.
+func (h *AlertHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/alerts", h.List)
+	mux.HandleFunc("PATCH /api/alerts/{id}/mark-read", h.MarkRead)
 }
 
-func (h *AlertHandler) list(w http.ResponseWriter, r *http.Request) {
+func (h *AlertHandler) List(w http.ResponseWriter, r *http.Request) {
 	routeID := r.URL.Query().Get("route_id")
 
 	var (
@@ -59,14 +49,19 @@ func (h *AlertHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"alerts": alerts, "count": len(alerts)})
 }
 
-func (h *AlertHandler) markRead(w http.ResponseWriter, r *http.Request, id string) {
+func (h *AlertHandler) MarkRead(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing alert id")
 		return
 	}
 
 	if err := h.repo.MarkRead(r.Context(), id); err != nil {
-		writeError(w, http.StatusNotFound, "alert not found")
+		if errors.Is(err, repository.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "alert not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, "failed to mark alert read")
+		}
 		return
 	}
 

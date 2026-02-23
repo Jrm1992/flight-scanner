@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -11,11 +12,11 @@ import (
 
 // SearchHandler handles POST /api/search/flights.
 type SearchHandler struct {
-	client *flightapi.Client
+	client FlightSearcher
 }
 
 // NewSearchHandler creates a SearchHandler.
-func NewSearchHandler(client *flightapi.Client) *SearchHandler {
+func NewSearchHandler(client FlightSearcher) *SearchHandler {
 	return &SearchHandler{client: client}
 }
 
@@ -27,12 +28,12 @@ type searchRequest struct {
 	Currency    string `json:"currency"`    // optional, default USD
 }
 
-func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
+// RegisterRoutes registers search handler endpoints on the given mux.
+func (h *SearchHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/search/flights", h.Search)
+}
 
+func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	var req searchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -81,7 +82,8 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	results, err := h.client.Search(r.Context(), params)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "flight search failed: "+err.Error())
+		slog.Error("flight search failed", "err", err)
+		writeError(w, http.StatusBadGateway, "flight search temporarily unavailable")
 		return
 	}
 

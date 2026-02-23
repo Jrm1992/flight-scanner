@@ -14,6 +14,14 @@ type Route struct {
 	UpdatedAt             time.Time `json:"updated_at"`
 }
 
+// RouteWithPrice extends Route with the latest price information.
+type RouteWithPrice struct {
+	Route
+	CurrentPrice *float64   `json:"current_price,omitempty"`
+	LastCheckAt  *time.Time `json:"last_check_at,omitempty"`
+	PriceTrend   string     `json:"price_trend,omitempty"`
+}
+
 // PriceHistory stores a price snapshot for a monitored route.
 type PriceHistory struct {
 	ID        string    `json:"id"`
@@ -48,4 +56,12 @@ type CreateRouteRequest struct {
 type UpdateRouteRequest struct {
 	AlertPrice            *float64 `json:"alert_price,omitempty"`
 	CheckFrequencyMinutes *int     `json:"check_frequency_minutes,omitempty"`
+}
+
+// PriceStats holds aggregated price statistics for a route over a period.
+type PriceStats struct {
+	MinPrice float64   `json:"min_price"`
+	MaxPrice float64   `json:"max_price"`
+	AvgPrice float64   `json:"avg_price"`
+	Since    time.Time `json:"since"`
 }

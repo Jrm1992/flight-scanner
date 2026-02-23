@@ -2,14 +2,15 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 )
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
-	DatabaseURL  string
-	SerpAPIKey   string
+	DatabaseURL string
+	SerpAPIKey  string
 	ServerPort  int
 	Env         string
 	FrontendURL string
@@ -29,6 +30,9 @@ func Load() (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 		}
+		if parsed < 1 || parsed > 65535 {
+			return nil, fmt.Errorf("SERVER_PORT must be between 1 and 65535, got %d", parsed)
+		}
 		port = parsed
 	}
 
@@ -42,9 +46,13 @@ func Load() (*Config, error) {
 		frontendURL = "http://localhost:3000"
 	}
 
+	if os.Getenv("SERPAPI_KEY") == "" {
+		slog.Warn("SERPAPI_KEY is not set; flight searches will fail")
+	}
+
 	return &Config{
-		DatabaseURL:  dbURL,
-		SerpAPIKey:   os.Getenv("SERPAPI_KEY"),
+		DatabaseURL: dbURL,
+		SerpAPIKey:  os.Getenv("SERPAPI_KEY"),
 		ServerPort:  port,
 		Env:         env,
 		FrontendURL: frontendURL,

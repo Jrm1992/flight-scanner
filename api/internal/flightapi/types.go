@@ -4,8 +4,8 @@ import "time"
 
 // SearchParams holds query parameters for a Google Flights search via SerpApi.
 type SearchParams struct {
-	DepartureID string // IATA code (e.g. "GIG")
-	ArrivalID   string // IATA code (e.g. "SCL")
+	DepartureID  string // IATA code (e.g. "GIG")
+	ArrivalID    string // IATA code (e.g. "SCL")
 	OutboundDate time.Time
 	ReturnDate   *time.Time // nil = one way
 	Currency     string     // e.g. "USD", "BRL"

@@ -71,7 +71,7 @@ func TestSearch_Success(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -128,7 +128,7 @@ func TestSearch_RetryOnServerError(t *testing.T) {
 		n := attempts.Add(1)
 		if n <= 2 {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("internal error"))
+			_, _ = w.Write([]byte("internal error"))
 			return
 		}
 		resp := SerpResponse{
@@ -140,7 +140,7 @@ func TestSearch_RetryOnServerError(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -182,7 +182,7 @@ func TestSearch_NoRetryOn4xx(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts.Add(1)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"Invalid API key"}`))
+		_, _ = w.Write([]byte(`{"error":"Invalid API key"}`))
 	}))
 	defer srv.Close()
 
@@ -254,7 +254,7 @@ func TestBuildSearchURL(t *testing.T) {
 		"currency":      "USD",
 		"stops":         "1",
 		"max_price":     "500",
-		"api_key":       "my-key",
+		// api_key is now added at request time, not in the URL builder
 	}
 
 	for key, expected := range checks {

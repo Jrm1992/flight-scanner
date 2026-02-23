@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jose/flight-scanner/internal/models"
@@ -40,13 +42,13 @@ func (r *PriceHistoryRepo) GetByRoute(ctx context.Context, routeID string, days 
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, route_id, min_price, max_price, avg_price, COALESCE(airline, ''), checked_at
 		FROM price_history
-		WHERE route_id = $1 AND checked_at >= NOW() - ($2 || ' days')::INTERVAL
+		WHERE route_id = $1 AND checked_at >= NOW() - $2 * INTERVAL '1 day'
 		ORDER BY checked_at ASC
-	`, routeID, fmt.Sprintf("%d", days))
+	`, routeID, days)
 	if err != nil {
 		return nil, fmt.Errorf("get price history: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var history []models.PriceHistory
 	for rows.Next() {
@@ -69,8 +71,8 @@ func (r *PriceHistoryRepo) GetLatestPrice(ctx context.Context, routeID string) (
 		ORDER BY checked_at DESC
 		LIMIT 1
 	`, routeID).Scan(&ph.ID, &ph.RouteID, &ph.MinPrice, &ph.MaxPrice, &ph.AvgPrice, &ph.Airline, &ph.CheckedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get latest price: %w", err)
@@ -78,25 +80,56 @@ func (r *PriceHistoryRepo) GetLatestPrice(ctx context.Context, routeID string) (
 	return &ph, nil
 }
 
-// GetStats returns min, max, and average prices for a route over a period.
-type PriceStats struct {
-	MinPrice float64   `json:"min_price"`
-	MaxPrice float64   `json:"max_price"`
-	AvgPrice float64   `json:"avg_price"`
-	Since    time.Time `json:"since"`
+// GetLatestPrices returns the most recent price entry for each of the given route IDs.
+func (r *PriceHistoryRepo) GetLatestPrices(ctx context.Context, routeIDs []string) (map[string]models.PriceHistory, error) {
+	if len(routeIDs) == 0 {
+		return map[string]models.PriceHistory{}, nil
+	}
+
+	// Build placeholders $1, $2, ...
+	placeholders := make([]string, len(routeIDs))
+	args := make([]any, len(routeIDs))
+	for i, id := range routeIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT DISTINCT ON (route_id) id, route_id, min_price, max_price, avg_price, COALESCE(airline, ''), checked_at
+		FROM price_history
+		WHERE route_id IN (%s)
+		ORDER BY route_id, checked_at DESC
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("get latest prices: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	result := make(map[string]models.PriceHistory, len(routeIDs))
+	for rows.Next() {
+		var ph models.PriceHistory
+		if err := rows.Scan(&ph.ID, &ph.RouteID, &ph.MinPrice, &ph.MaxPrice, &ph.AvgPrice, &ph.Airline, &ph.CheckedAt); err != nil {
+			return nil, fmt.Errorf("scan latest price: %w", err)
+		}
+		result[ph.RouteID] = ph
+	}
+	return result, rows.Err()
 }
 
-func (r *PriceHistoryRepo) GetStats(ctx context.Context, routeID string, days int) (*PriceStats, error) {
+// GetStats returns min, max, and average prices for a route over a period.
+func (r *PriceHistoryRepo) GetStats(ctx context.Context, routeID string, days int) (*models.PriceStats, error) {
 	if days <= 0 {
 		days = 30
 	}
 
-	var stats PriceStats
+	var stats models.PriceStats
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(MIN(min_price), 0), COALESCE(MAX(max_price), 0), COALESCE(AVG(avg_price), 0)
 		FROM price_history
-		WHERE route_id = $1 AND checked_at >= NOW() - ($2 || ' days')::INTERVAL
-	`, routeID, fmt.Sprintf("%d", days)).Scan(&stats.MinPrice, &stats.MaxPrice, &stats.AvgPrice)
+		WHERE route_id = $1 AND checked_at >= NOW() - $2 * INTERVAL '1 day'
+	`, routeID, days).Scan(&stats.MinPrice, &stats.MaxPrice, &stats.AvgPrice)
 	if err != nil {
 		return nil, fmt.Errorf("get price stats: %w", err)
 	}

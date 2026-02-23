@@ -39,6 +39,7 @@ func (r *AlertRepo) Create(ctx context.Context, routeID string, alertPrice, trig
 func (r *AlertRepo) HasAlertToday(ctx context.Context, routeID string) (bool, error) {
 	var exists bool
 	err := r.db.QueryRowContext(ctx, `
+		-- NOTE: CURRENT_DATE uses the database timezone (UTC on Render)
 		SELECT EXISTS(
 			SELECT 1 FROM alerts
 			WHERE route_id = $1 AND triggered_at::date = CURRENT_DATE
@@ -59,7 +60,7 @@ func (r *AlertRepo) ListAll(ctx context.Context) ([]models.Alert, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list alerts: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanAlerts(rows)
 }
@@ -73,7 +74,7 @@ func (r *AlertRepo) ListByRoute(ctx context.Context, routeID string) ([]models.A
 	if err != nil {
 		return nil, fmt.Errorf("list alerts by route: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanAlerts(rows)
 }
@@ -88,7 +89,7 @@ func (r *AlertRepo) MarkRead(ctx context.Context, id string) error {
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("alert %s not found", id)
+		return ErrNotFound
 	}
 	return nil
 }

@@ -2,28 +2,26 @@ package monitor
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
-	"time"
 
-	"github.com/jose/flight-scanner/internal/flightapi"
 	"github.com/jose/flight-scanner/internal/models"
-	"github.com/jose/flight-scanner/internal/repository"
 )
 
 // Monitor manages background goroutines that track flight prices for active routes.
 type Monitor struct {
-	routes       *repository.RouteRepo
-	priceHistory *repository.PriceHistoryRepo
-	alerts       *repository.AlertRepo
-	flightClient *flightapi.Client
+	routes       routeStore
+	priceHistory priceHistoryStore
+	alerts       alertStore
+	flightClient flightSearcher
 
-	mu      sync.Mutex
-	workers map[string]*worker // route ID → worker
+	ctx     context.Context // long-lived context for all workers
+	mu      sync.RWMutex
+	workers map[string]*worker // route ID -> worker
 }
 
 // New creates a Monitor with the given dependencies.
-func New(routes *repository.RouteRepo, priceHistory *repository.PriceHistoryRepo, alerts *repository.AlertRepo, flightClient *flightapi.Client) *Monitor {
+func New(routes routeStore, priceHistory priceHistoryStore, alerts alertStore, flightClient flightSearcher) *Monitor {
 	return &Monitor{
 		routes:       routes,
 		priceHistory: priceHistory,
@@ -34,21 +32,24 @@ func New(routes *repository.RouteRepo, priceHistory *repository.PriceHistoryRepo
 }
 
 // Start loads all active routes and starts a monitoring goroutine for each.
+// The provided context is stored and used as the parent for all worker goroutines.
 func (m *Monitor) Start(ctx context.Context) error {
+	m.ctx = ctx
+
 	active, err := m.routes.ListActive(ctx)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[monitor] starting %d active route(s)", len(active))
+	slog.Info("starting active routes", "count", len(active))
 	for _, route := range active {
-		m.StartRoute(ctx, route)
+		m.StartRoute(route)
 	}
 	return nil
 }
 
 // StartRoute begins monitoring a single route. Safe to call if already running (no-op).
-func (m *Monitor) StartRoute(ctx context.Context, route models.Route) {
+func (m *Monitor) StartRoute(route models.Route) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -56,12 +57,11 @@ func (m *Monitor) StartRoute(ctx context.Context, route models.Route) {
 		return
 	}
 
-	w := newWorker(route, m.flightClient, m.priceHistory, m.alerts)
+	w := newWorker(m.ctx, route, m.flightClient, m.priceHistory, m.alerts)
 	m.workers[route.ID] = w
-	go w.run(ctx)
+	go w.run()
 
-	log.Printf("[monitor] started worker for %s→%s (id=%s, freq=%dm)",
-		route.Origin, route.Destination, route.ID, route.CheckFrequencyMinutes)
+	slog.Info("started worker", "origin", route.Origin, "destination", route.Destination, "id", route.ID, "freq_min", route.CheckFrequencyMinutes)
 }
 
 // StopRoute cancels the monitoring goroutine for a given route.
@@ -72,7 +72,7 @@ func (m *Monitor) StopRoute(routeID string) {
 	if w, exists := m.workers[routeID]; exists {
 		w.stop()
 		delete(m.workers, routeID)
-		log.Printf("[monitor] stopped worker for route %s", routeID)
+		slog.Info("stopped worker", "route_id", routeID)
 	}
 }
 
@@ -85,28 +85,31 @@ func (m *Monitor) StopAll() {
 		w.stop()
 		delete(m.workers, id)
 	}
-	log.Println("[monitor] all workers stopped")
+	slog.Info("all workers stopped")
 }
 
 // RunningCount returns the number of currently active workers.
 func (m *Monitor) RunningCount() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return len(m.workers)
 }
 
 // IsRunning checks if a specific route is being monitored.
 func (m *Monitor) IsRunning(routeID string) bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	_, exists := m.workers[routeID]
 	return exists
 }
 
 // RestartRoute stops and restarts monitoring for a route (e.g. after config update).
-func (m *Monitor) RestartRoute(ctx context.Context, route models.Route) {
-	m.StopRoute(route.ID)
-	// Small pause to ensure clean shutdown before restart.
-	time.Sleep(100 * time.Millisecond)
-	m.StartRoute(ctx, route)
+func (m *Monitor) RestartRoute(route models.Route) {
+	m.mu.Lock()
+	if w, exists := m.workers[route.ID]; exists {
+		w.stop()
+		delete(m.workers, route.ID)
+	}
+	m.mu.Unlock()
+	m.StartRoute(route)
 }

@@ -2,96 +2,99 @@ package monitor
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jose/flight-scanner/internal/flightapi"
 	"github.com/jose/flight-scanner/internal/models"
-	"github.com/jose/flight-scanner/internal/repository"
 )
 
 // worker monitors prices for a single route in its own goroutine.
 type worker struct {
 	route        models.Route
-	flightClient *flightapi.Client
-	priceHistory *repository.PriceHistoryRepo
-	alerts       *repository.AlertRepo
+	flightClient flightSearcher
+	priceHistory priceHistoryStore
+	alerts       alertStore
 
+	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func newWorker(route models.Route, fc *flightapi.Client, ph *repository.PriceHistoryRepo, al *repository.AlertRepo) *worker {
+func newWorker(parentCtx context.Context, route models.Route, fc flightSearcher, ph priceHistoryStore, al alertStore) *worker {
+	ctx, cancel := context.WithCancel(parentCtx)
 	return &worker{
 		route:        route,
 		flightClient: fc,
 		priceHistory: ph,
 		alerts:       al,
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 }
 
 // run is the main loop. It ticks at the route's configured frequency, fetches prices,
 // stores them, and checks alert thresholds. It exits when the context is cancelled.
-func (w *worker) run(parentCtx context.Context) {
-	ctx, cancel := context.WithCancel(parentCtx)
-	w.cancel = cancel
+func (w *worker) run() {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("worker panic recovered", "route_id", w.route.ID, "origin", w.route.Origin, "destination", w.route.Destination, "panic", r)
+		}
+	}()
 
 	freq := time.Duration(w.route.CheckFrequencyMinutes) * time.Minute
 	ticker := time.NewTicker(freq)
 	defer ticker.Stop()
 
 	// Do an immediate first check, then wait for ticks.
-	w.check(ctx)
+	w.check()
 
 	for {
 		select {
-		case <-ctx.Done():
-			log.Printf("[worker] %s→%s stopped", w.route.Origin, w.route.Destination)
+		case <-w.ctx.Done():
+			slog.Info("worker stopped", "origin", w.route.Origin, "destination", w.route.Destination)
 			return
 		case <-ticker.C:
-			w.check(ctx)
+			w.check()
 		}
 	}
 }
 
 // stop cancels the worker's context, causing the goroutine to exit.
 func (w *worker) stop() {
-	if w.cancel != nil {
-		w.cancel()
-	}
+	w.cancel()
 }
 
 // check performs a single price fetch + store + alert evaluation cycle.
-func (w *worker) check(ctx context.Context) {
-	results, err := w.fetchPrices(ctx)
+func (w *worker) check() {
+	results, err := w.fetchPrices()
 	if err != nil {
-		log.Printf("[worker] %s→%s fetch error: %v", w.route.Origin, w.route.Destination, err)
+		slog.Error("fetch error", "origin", w.route.Origin, "destination", w.route.Destination, "err", err)
 		return
 	}
 
 	if len(results) == 0 {
-		log.Printf("[worker] %s→%s no results", w.route.Origin, w.route.Destination)
+		slog.Info("no results", "origin", w.route.Origin, "destination", w.route.Destination)
 		return
 	}
 
 	minPrice, maxPrice, avgPrice, topAirline := aggregateResults(results)
 
 	// Persist price snapshot
-	if err := w.priceHistory.Insert(ctx, w.route.ID, minPrice, maxPrice, avgPrice, topAirline); err != nil {
-		log.Printf("[worker] %s→%s price insert error: %v", w.route.Origin, w.route.Destination, err)
+	if err := w.priceHistory.Insert(w.ctx, w.route.ID, minPrice, maxPrice, avgPrice, topAirline); err != nil {
+		slog.Error("price insert error", "origin", w.route.Origin, "destination", w.route.Destination, "err", err)
 		return
 	}
 
-	log.Printf("[worker] %s→%s price: min=%.2f max=%.2f avg=%.2f",
-		w.route.Origin, w.route.Destination, minPrice, maxPrice, avgPrice)
+	slog.Info("price check", "origin", w.route.Origin, "destination", w.route.Destination, "min", minPrice, "max", maxPrice, "avg", avgPrice)
 
 	// Check alert threshold
 	if minPrice < w.route.AlertPrice {
-		w.tryCreateAlert(ctx, minPrice)
+		w.tryCreateAlert(minPrice)
 	}
 }
 
 // fetchPrices searches Google Flights for this route over the next 30 days.
-func (w *worker) fetchPrices(ctx context.Context) ([]flightapi.FlightResult, error) {
+func (w *worker) fetchPrices() ([]flightapi.FlightResult, error) {
 	now := time.Now()
 	params := flightapi.SearchParams{
 		DepartureID:  w.route.Origin,
@@ -101,28 +104,28 @@ func (w *worker) fetchPrices(ctx context.Context) ([]flightapi.FlightResult, err
 		Adults:       1,
 		TravelClass:  1, // economy
 	}
-	return w.flightClient.Search(ctx, params)
+	return w.flightClient.Search(w.ctx, params)
 }
 
 // tryCreateAlert creates an alert if one hasn't already been created today for this route.
-func (w *worker) tryCreateAlert(ctx context.Context, triggeredPrice float64) {
-	exists, err := w.alerts.HasAlertToday(ctx, w.route.ID)
+func (w *worker) tryCreateAlert(triggeredPrice float64) {
+	exists, err := w.alerts.HasAlertToday(w.ctx, w.route.ID)
 	if err != nil {
-		log.Printf("[worker] %s→%s alert check error: %v", w.route.Origin, w.route.Destination, err)
+		slog.Error("alert check error", "origin", w.route.Origin, "destination", w.route.Destination, "err", err)
 		return
 	}
 	if exists {
 		return // max 1 alert per route per day
 	}
 
-	alert, err := w.alerts.Create(ctx, w.route.ID, w.route.AlertPrice, triggeredPrice)
+	alert, err := w.alerts.Create(w.ctx, w.route.ID, w.route.AlertPrice, triggeredPrice)
 	if err != nil {
-		log.Printf("[worker] %s→%s alert create error: %v", w.route.Origin, w.route.Destination, err)
+		slog.Error("alert create error", "origin", w.route.Origin, "destination", w.route.Destination, "err", err)
 		return
 	}
 
-	log.Printf("[worker] ALERT %s→%s: price %.2f < threshold %.2f (alert_id=%s)",
-		w.route.Origin, w.route.Destination, triggeredPrice, w.route.AlertPrice, alert.ID)
+	slog.Warn("price alert triggered", "origin", w.route.Origin, "destination", w.route.Destination,
+		"price", triggeredPrice, "threshold", w.route.AlertPrice, "alert_id", alert.ID)
 }
 
 // aggregateResults computes min, max, avg prices and the cheapest airline from results.

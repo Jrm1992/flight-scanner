@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -91,12 +91,16 @@ func RunMigrations(db *sql.DB) error {
 		}
 
 		if _, err := tx.ExecContext(ctx, m.sql); err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				slog.Error("rollback error", "migration", m.name, "err", rbErr)
+			}
 			return fmt.Errorf("run migration %s: %w", m.name, err)
 		}
 
 		if _, err := tx.ExecContext(ctx, "INSERT INTO schema_migrations (name) VALUES ($1)", m.name); err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				slog.Error("rollback error", "migration", m.name, "err", rbErr)
+			}
 			return fmt.Errorf("record migration %s: %w", m.name, err)
 		}
 
@@ -104,7 +108,7 @@ func RunMigrations(db *sql.DB) error {
 			return fmt.Errorf("commit migration %s: %w", m.name, err)
 		}
 
-		log.Printf("[migration] applied: %s", m.name)
+		slog.Info("migration applied", "name", m.name)
 	}
 
 	return nil
