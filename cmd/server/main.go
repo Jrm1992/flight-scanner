@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"os/signal"
 	"syscall"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/jose/flight-scanner/internal/config"
 	"github.com/jose/flight-scanner/internal/database"
 	"github.com/jose/flight-scanner/internal/flightapi"
+	"github.com/jose/flight-scanner/internal/handler"
+	"github.com/jose/flight-scanner/internal/middleware"
 	"github.com/jose/flight-scanner/internal/monitor"
 	"github.com/jose/flight-scanner/internal/repository"
 )
@@ -59,15 +62,38 @@ func main() {
 		log.Printf("warning: failed to start monitor: %v", err)
 	}
 
-	// HTTP server (handlers coming in Sprint 5)
+	// Handlers
+	routeHandler := handler.NewRouteHandler(routeRepo, mon)
+	searchHandler := handler.NewSearchHandler(flightClient)
+	historyHandler := handler.NewHistoryHandler(priceHistoryRepo)
+	alertHandler := handler.NewAlertHandler(alertRepo)
+
+	// Routes
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"status":"ok","monitoring":%d}`, mon.RunningCount())
 	})
 
+	// /api/routes/ handles both route CRUD and history (dispatched by path)
+	mux.HandleFunc("/api/routes/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/history") {
+			historyHandler.ServeHTTP(w, r)
+			return
+		}
+		routeHandler.ServeHTTP(w, r)
+	})
+	mux.Handle("/api/routes", routeHandler)
+	mux.Handle("/api/search/flights", searchHandler)
+	mux.Handle("/api/alerts/", alertHandler)
+	mux.Handle("/api/alerts", alertHandler)
+
+	// CORS middleware
+	cors := middleware.CORS(cfg.FrontendURL)
+
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := &http.Server{Addr: addr, Handler: cors(mux)}
 
 	// Graceful shutdown: listen for SIGINT/SIGTERM
 	go func() {
