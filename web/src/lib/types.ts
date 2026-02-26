@@ -7,6 +7,9 @@ export interface Route {
   status: "active" | "paused";
   created_at: string;
   updated_at: string;
+  current_price?: number;
+  last_check_at?: string;
+  price_trend?: string;
 }
 
 export interface CreateRouteRequest {

@@ -82,3 +82,8 @@ export async function getAlerts(routeId?: string): Promise<Alert[]> {
 export async function markAlertRead(id: string): Promise<void> {
   await request(`/api/alerts/${id}/mark-read`, { method: "PATCH" });
 }
+
+// Export
+export function getExportUrl(routeId: string, days: number, format: "csv" | "json"): string {
+  return `${API_URL}/api/routes/${routeId}/history/export?days=${days}&format=${format}`;
+}
