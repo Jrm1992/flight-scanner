@@ -2,9 +2,38 @@ package models
 
 import "time"
 
+// User represents a registered user.
+type User struct {
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"`
+	Name         string    `json:"name"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// RegisterRequest is the payload for user registration.
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
+}
+
+// LoginRequest is the payload for user login.
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// AuthResponse is returned after successful login or registration.
+type AuthResponse struct {
+	Token string `json:"token"`
+	User  User   `json:"user"`
+}
+
 // Route represents a flight route being monitored for price changes.
 type Route struct {
 	ID                    string    `json:"id"`
+	UserID                string    `json:"user_id"`
 	Origin                string    `json:"origin"`
 	Destination           string    `json:"destination"`
 	AlertPrice            float64   `json:"alert_price"`

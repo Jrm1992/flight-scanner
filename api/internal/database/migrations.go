@@ -54,6 +54,24 @@ var migrations = []struct {
 		);
 		CREATE INDEX IF NOT EXISTS idx_route_alerts ON alerts(route_id, triggered_at);`,
 	},
+	{
+		name: "create_users_table",
+		sql: `CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			email VARCHAR(255) UNIQUE NOT NULL,
+			password_hash VARCHAR(255) NOT NULL,
+			name VARCHAR(100) NOT NULL,
+			created_at TIMESTAMP DEFAULT NOW()
+		);`,
+	},
+	{
+		name: "add_user_id_to_routes",
+		sql: `DELETE FROM alerts;
+		DELETE FROM price_history;
+		DELETE FROM routes;
+		ALTER TABLE routes ADD COLUMN user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE;
+		CREATE INDEX IF NOT EXISTS idx_routes_user ON routes(user_id);`,
+	},
 }
 
 // RunMigrations executes all pending migrations in order.

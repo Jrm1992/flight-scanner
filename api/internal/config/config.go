@@ -11,6 +11,7 @@ import (
 type Config struct {
 	DatabaseURL string
 	SerpAPIKey  string
+	JWTSecret   string
 	ServerPort  int
 	Env         string
 	FrontendURL string
@@ -50,9 +51,15 @@ func Load() (*Config, error) {
 		slog.Warn("SERPAPI_KEY is not set; flight searches will fail")
 	}
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		return nil, fmt.Errorf("JWT_SECRET is required")
+	}
+
 	return &Config{
 		DatabaseURL: dbURL,
 		SerpAPIKey:  os.Getenv("SERPAPI_KEY"),
+		JWTSecret:   jwtSecret,
 		ServerPort:  port,
 		Env:         env,
 		FrontendURL: frontendURL,
