@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/jose/flight-scanner/internal/auth"
 	"github.com/jose/flight-scanner/internal/config"
 	"github.com/jose/flight-scanner/internal/database"
 	"github.com/jose/flight-scanner/internal/flightapi"
@@ -56,6 +57,10 @@ func main() {
 	routeRepo := repository.NewRouteRepo(db)
 	priceHistoryRepo := repository.NewPriceHistoryRepo(db)
 	alertRepo := repository.NewAlertRepo(db)
+	userRepo := repository.NewUserRepo(db)
+
+	// Auth service
+	authService := auth.NewService(cfg.JWTSecret, userRepo)
 
 	// SerpApi (Google Flights) client
 	flightClient := flightapi.NewClient(cfg.SerpAPIKey)
@@ -70,6 +75,7 @@ func main() {
 	}
 
 	// Handlers
+	authHandler := handler.NewAuthHandler(authService)
 	routeHandler := handler.NewRouteHandler(routeRepo, mon, priceHistoryRepo)
 	searchHandler := handler.NewSearchHandler(flightClient)
 	historyHandler := handler.NewHistoryHandler(priceHistoryRepo)
@@ -85,6 +91,10 @@ func main() {
 		}
 	})
 
+	// Public routes
+	authHandler.RegisterRoutes(mux)
+
+	// Protected routes (will be wrapped with auth middleware in Sprint 2)
 	routeHandler.RegisterRoutes(mux)
 	historyHandler.RegisterRoutes(mux)
 	searchHandler.RegisterRoutes(mux)
