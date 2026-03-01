@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	"github.com/jose/flight-scanner/internal/middleware"
 )
 
 // HistoryHandler handles /api/routes/:id/history endpoints.
@@ -38,13 +40,14 @@ func (h *HistoryHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	history, err := h.priceRepo.GetByRoute(r.Context(), routeID, days)
+	userID := middleware.UserIDFromContext(r.Context())
+	history, err := h.priceRepo.GetByRoute(r.Context(), userID, routeID, days)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get history")
 		return
 	}
 
-	stats, err := h.priceRepo.GetStats(r.Context(), routeID, days)
+	stats, err := h.priceRepo.GetStats(r.Context(), userID, routeID, days)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get stats")
 		return
@@ -75,7 +78,8 @@ func (h *HistoryHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 	format := r.URL.Query().Get("format")
 
-	history, err := h.priceRepo.GetByRoute(r.Context(), routeID, days)
+	userID := middleware.UserIDFromContext(r.Context())
+	history, err := h.priceRepo.GetByRoute(r.Context(), userID, routeID, days)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get history")
 		return

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jose/flight-scanner/internal/middleware"
 	"github.com/jose/flight-scanner/internal/models"
 	"github.com/jose/flight-scanner/internal/repository"
 )
@@ -58,7 +59,8 @@ func (h *RouteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	route, err := h.repo.Create(r.Context(), req)
+	userID := middleware.UserIDFromContext(r.Context())
+	route, err := h.repo.Create(r.Context(), userID, req)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create route")
 		return
@@ -71,7 +73,8 @@ func (h *RouteHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RouteHandler) List(w http.ResponseWriter, r *http.Request) {
-	routes, err := h.repo.ListAll(r.Context())
+	userID := middleware.UserIDFromContext(r.Context())
+	routes, err := h.repo.ListAll(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list routes")
 		return
@@ -86,7 +89,7 @@ func (h *RouteHandler) List(w http.ResponseWriter, r *http.Request) {
 		ids[i] = rt.ID
 	}
 
-	prices, _ := h.priceRepo.GetLatestPrices(r.Context(), ids)
+	prices, _ := h.priceRepo.GetLatestPrices(r.Context(), userID, ids)
 
 	enriched := make([]models.RouteWithPrice, len(routes))
 	for i, rt := range routes {
@@ -122,7 +125,8 @@ func (h *RouteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	route, err := h.repo.Update(r.Context(), id, req)
+	userID := middleware.UserIDFromContext(r.Context())
+	route, err := h.repo.Update(r.Context(), userID, id, req)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "route not found")
@@ -145,9 +149,10 @@ func (h *RouteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := middleware.UserIDFromContext(r.Context())
 	h.monitor.StopRoute(id)
 
-	if err := h.repo.Delete(r.Context(), id); err != nil {
+	if err := h.repo.Delete(r.Context(), userID, id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "route not found")
 		} else {
@@ -166,7 +171,8 @@ func (h *RouteHandler) Pause(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.repo.SetStatus(r.Context(), id, "paused"); err != nil {
+	userID := middleware.UserIDFromContext(r.Context())
+	if err := h.repo.SetStatus(r.Context(), userID, id, "paused"); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "route not found")
 		} else {
@@ -187,7 +193,8 @@ func (h *RouteHandler) Resume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.repo.SetStatus(r.Context(), id, "active"); err != nil {
+	userID := middleware.UserIDFromContext(r.Context())
+	if err := h.repo.SetStatus(r.Context(), userID, id, "active"); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "route not found")
 		} else {
@@ -196,7 +203,7 @@ func (h *RouteHandler) Resume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	route, err := h.repo.GetByID(r.Context(), id)
+	route, err := h.repo.GetByID(r.Context(), userID, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "route not found")

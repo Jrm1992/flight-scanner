@@ -94,11 +94,19 @@ func main() {
 	// Public routes
 	authHandler.RegisterRoutes(mux)
 
-	// Protected routes (will be wrapped with auth middleware in Sprint 2)
-	routeHandler.RegisterRoutes(mux)
-	historyHandler.RegisterRoutes(mux)
-	searchHandler.RegisterRoutes(mux)
-	alertHandler.RegisterRoutes(mux)
+	// Protected routes — wrapped with auth middleware
+	auth := middleware.RequireAuth(authService)
+	mux.HandleFunc("GET /api/routes", auth(routeHandler.List))
+	mux.HandleFunc("POST /api/routes", auth(routeHandler.Create))
+	mux.HandleFunc("PUT /api/routes/{id}", auth(routeHandler.Update))
+	mux.HandleFunc("DELETE /api/routes/{id}", auth(routeHandler.Delete))
+	mux.HandleFunc("PATCH /api/routes/{id}/pause", auth(routeHandler.Pause))
+	mux.HandleFunc("PATCH /api/routes/{id}/resume", auth(routeHandler.Resume))
+	mux.HandleFunc("GET /api/routes/{id}/history", auth(historyHandler.GetHistory))
+	mux.HandleFunc("GET /api/routes/{id}/history/export", auth(historyHandler.Export))
+	mux.HandleFunc("POST /api/search/flights", auth(searchHandler.Search))
+	mux.HandleFunc("GET /api/alerts", auth(alertHandler.List))
+	mux.HandleFunc("PATCH /api/alerts/{id}/mark-read", auth(alertHandler.MarkRead))
 
 	// CORS middleware
 	cors := middleware.CORS(cfg.FrontendURL)

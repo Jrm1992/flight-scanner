@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/jose/flight-scanner/internal/middleware"
 	"github.com/jose/flight-scanner/internal/models"
 	"github.com/jose/flight-scanner/internal/repository"
 )
@@ -25,6 +26,7 @@ func (h *AlertHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *AlertHandler) List(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromContext(r.Context())
 	routeID := r.URL.Query().Get("route_id")
 
 	var (
@@ -33,9 +35,9 @@ func (h *AlertHandler) List(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if routeID != "" {
-		alerts, err = h.repo.ListByRoute(r.Context(), routeID)
+		alerts, err = h.repo.ListByRoute(r.Context(), userID, routeID)
 	} else {
-		alerts, err = h.repo.ListAll(r.Context())
+		alerts, err = h.repo.ListAll(r.Context(), userID)
 	}
 
 	if err != nil {
@@ -56,7 +58,8 @@ func (h *AlertHandler) MarkRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.repo.MarkRead(r.Context(), id); err != nil {
+	userID := middleware.UserIDFromContext(r.Context())
+	if err := h.repo.MarkRead(r.Context(), userID, id); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "alert not found")
 		} else {
