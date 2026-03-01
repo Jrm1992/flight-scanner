@@ -18,7 +18,7 @@ func NewAlertRepo(db *sql.DB) *AlertRepo {
 	return &AlertRepo{db: db}
 }
 
-// Create inserts a new alert record.
+// Create inserts a new alert record (used by monitor, no user scoping needed).
 func (r *AlertRepo) Create(ctx context.Context, routeID string, alertPrice, triggeredPrice float64) (*models.Alert, error) {
 	var alert models.Alert
 	err := r.db.QueryRowContext(ctx, `
@@ -35,11 +35,10 @@ func (r *AlertRepo) Create(ctx context.Context, routeID string, alertPrice, trig
 	return &alert, nil
 }
 
-// HasAlertToday checks if an alert already exists for this route today.
+// HasAlertToday checks if an alert already exists for this route today (used by monitor).
 func (r *AlertRepo) HasAlertToday(ctx context.Context, routeID string) (bool, error) {
 	var exists bool
 	err := r.db.QueryRowContext(ctx, `
-		-- NOTE: CURRENT_DATE uses the database timezone (UTC on Render)
 		SELECT EXISTS(
 			SELECT 1 FROM alerts
 			WHERE route_id = $1 AND triggered_at::date = CURRENT_DATE
@@ -51,12 +50,15 @@ func (r *AlertRepo) HasAlertToday(ctx context.Context, routeID string) (bool, er
 	return exists, nil
 }
 
-// ListAll returns all alerts ordered by most recent first.
-func (r *AlertRepo) ListAll(ctx context.Context) ([]models.Alert, error) {
+// ListAll returns all alerts for a user, ordered by most recent first.
+func (r *AlertRepo) ListAll(ctx context.Context, userID string) ([]models.Alert, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, route_id, alert_price, triggered_price, triggered_at, notified, notified_at
-		FROM alerts ORDER BY triggered_at DESC
-	`)
+		SELECT a.id, a.route_id, a.alert_price, a.triggered_price, a.triggered_at, a.notified, a.notified_at
+		FROM alerts a
+		JOIN routes rt ON rt.id = a.route_id
+		WHERE rt.user_id = $1
+		ORDER BY a.triggered_at DESC
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list alerts: %w", err)
 	}
@@ -65,12 +67,15 @@ func (r *AlertRepo) ListAll(ctx context.Context) ([]models.Alert, error) {
 	return scanAlerts(rows)
 }
 
-// ListByRoute returns alerts for a specific route.
-func (r *AlertRepo) ListByRoute(ctx context.Context, routeID string) ([]models.Alert, error) {
+// ListByRoute returns alerts for a specific route, scoped to user.
+func (r *AlertRepo) ListByRoute(ctx context.Context, userID, routeID string) ([]models.Alert, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, route_id, alert_price, triggered_price, triggered_at, notified, notified_at
-		FROM alerts WHERE route_id = $1 ORDER BY triggered_at DESC
-	`, routeID)
+		SELECT a.id, a.route_id, a.alert_price, a.triggered_price, a.triggered_at, a.notified, a.notified_at
+		FROM alerts a
+		JOIN routes rt ON rt.id = a.route_id
+		WHERE a.route_id = $1 AND rt.user_id = $2
+		ORDER BY a.triggered_at DESC
+	`, routeID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list alerts by route: %w", err)
 	}
@@ -79,11 +84,12 @@ func (r *AlertRepo) ListByRoute(ctx context.Context, routeID string) ([]models.A
 	return scanAlerts(rows)
 }
 
-// MarkRead marks an alert as notified/read.
-func (r *AlertRepo) MarkRead(ctx context.Context, id string) error {
+// MarkRead marks an alert as notified/read, scoped to user.
+func (r *AlertRepo) MarkRead(ctx context.Context, userID, id string) error {
 	res, err := r.db.ExecContext(ctx, `
-		UPDATE alerts SET notified = TRUE, notified_at = NOW() WHERE id = $1
-	`, id)
+		UPDATE alerts SET notified = TRUE, notified_at = NOW()
+		WHERE id = $1 AND route_id IN (SELECT id FROM routes WHERE user_id = $2)
+	`, id, userID)
 	if err != nil {
 		return fmt.Errorf("mark alert read: %w", err)
 	}

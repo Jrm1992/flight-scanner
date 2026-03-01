@@ -20,26 +20,26 @@ var (
 
 // RouteRepository defines the methods handlers need from the route store.
 type RouteRepository interface {
-	Create(ctx context.Context, req models.CreateRouteRequest) (*models.Route, error)
-	ListAll(ctx context.Context) ([]models.Route, error)
-	Update(ctx context.Context, id string, req models.UpdateRouteRequest) (*models.Route, error)
-	Delete(ctx context.Context, id string) error
-	SetStatus(ctx context.Context, id, status string) error
-	GetByID(ctx context.Context, id string) (*models.Route, error)
+	Create(ctx context.Context, userID string, req models.CreateRouteRequest) (*models.Route, error)
+	ListAll(ctx context.Context, userID string) ([]models.Route, error)
+	Update(ctx context.Context, userID, id string, req models.UpdateRouteRequest) (*models.Route, error)
+	Delete(ctx context.Context, userID, id string) error
+	SetStatus(ctx context.Context, userID, id, status string) error
+	GetByID(ctx context.Context, userID, id string) (*models.Route, error)
 }
 
 // AlertRepository defines the methods handlers need from the alert store.
 type AlertRepository interface {
-	ListAll(ctx context.Context) ([]models.Alert, error)
-	ListByRoute(ctx context.Context, routeID string) ([]models.Alert, error)
-	MarkRead(ctx context.Context, id string) error
+	ListAll(ctx context.Context, userID string) ([]models.Alert, error)
+	ListByRoute(ctx context.Context, userID, routeID string) ([]models.Alert, error)
+	MarkRead(ctx context.Context, userID, id string) error
 }
 
 // PriceHistoryRepository defines the methods handlers need from the price history store.
 type PriceHistoryRepository interface {
-	GetByRoute(ctx context.Context, routeID string, days int) ([]models.PriceHistory, error)
-	GetStats(ctx context.Context, routeID string, days int) (*models.PriceStats, error)
-	GetLatestPrices(ctx context.Context, routeIDs []string) (map[string]models.PriceHistory, error)
+	GetByRoute(ctx context.Context, userID, routeID string, days int) ([]models.PriceHistory, error)
+	GetStats(ctx context.Context, userID, routeID string, days int) (*models.PriceStats, error)
+	GetLatestPrices(ctx context.Context, userID string, routeIDs []string) (map[string]models.PriceHistory, error)
 }
 
 // FlightSearcher defines the method handlers need for flight searches.

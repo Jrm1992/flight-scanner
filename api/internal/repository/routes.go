@@ -20,7 +20,7 @@ func NewRouteRepo(db *sql.DB) *RouteRepo {
 }
 
 // Create inserts a new route and returns it with the generated ID.
-func (r *RouteRepo) Create(ctx context.Context, req models.CreateRouteRequest) (*models.Route, error) {
+func (r *RouteRepo) Create(ctx context.Context, userID string, req models.CreateRouteRequest) (*models.Route, error) {
 	freq := req.CheckFrequencyMinutes
 	if freq <= 0 {
 		freq = 60
@@ -28,11 +28,11 @@ func (r *RouteRepo) Create(ctx context.Context, req models.CreateRouteRequest) (
 
 	var route models.Route
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO routes (origin, destination, alert_price, check_frequency_minutes)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-	`, req.Origin, req.Destination, req.AlertPrice, freq).Scan(
-		&route.ID, &route.Origin, &route.Destination, &route.AlertPrice,
+		INSERT INTO routes (user_id, origin, destination, alert_price, check_frequency_minutes)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
+	`, userID, req.Origin, req.Destination, req.AlertPrice, freq).Scan(
+		&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
 		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
 	)
 	if err != nil {
@@ -41,14 +41,14 @@ func (r *RouteRepo) Create(ctx context.Context, req models.CreateRouteRequest) (
 	return &route, nil
 }
 
-// GetByID retrieves a single route by ID.
-func (r *RouteRepo) GetByID(ctx context.Context, id string) (*models.Route, error) {
+// GetByID retrieves a single route by ID, scoped to the user.
+func (r *RouteRepo) GetByID(ctx context.Context, userID, id string) (*models.Route, error) {
 	var route models.Route
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-		FROM routes WHERE id = $1
-	`, id).Scan(
-		&route.ID, &route.Origin, &route.Destination, &route.AlertPrice,
+		SELECT id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
+		FROM routes WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(
+		&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
 		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -60,10 +60,10 @@ func (r *RouteRepo) GetByID(ctx context.Context, id string) (*models.Route, erro
 	return &route, nil
 }
 
-// ListActive returns all routes with status 'active'.
+// ListActive returns all routes with status 'active' across all users (used by monitor).
 func (r *RouteRepo) ListActive(ctx context.Context) ([]models.Route, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
+		SELECT id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
 		FROM routes WHERE status = 'active'
 		ORDER BY created_at DESC
 	`)
@@ -75,12 +75,12 @@ func (r *RouteRepo) ListActive(ctx context.Context) ([]models.Route, error) {
 	return scanRoutes(rows)
 }
 
-// ListAll returns all routes regardless of status.
-func (r *RouteRepo) ListAll(ctx context.Context) ([]models.Route, error) {
+// ListAll returns all routes for a specific user.
+func (r *RouteRepo) ListAll(ctx context.Context, userID string) ([]models.Route, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-		FROM routes ORDER BY created_at DESC
-	`)
+		SELECT id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
+		FROM routes WHERE user_id = $1 ORDER BY created_at DESC
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list routes: %w", err)
 	}
@@ -89,18 +89,18 @@ func (r *RouteRepo) ListAll(ctx context.Context) ([]models.Route, error) {
 	return scanRoutes(rows)
 }
 
-// Update modifies a route's alert_price and/or check_frequency_minutes.
-func (r *RouteRepo) Update(ctx context.Context, id string, req models.UpdateRouteRequest) (*models.Route, error) {
+// Update modifies a route's alert_price and/or check_frequency_minutes, scoped to user.
+func (r *RouteRepo) Update(ctx context.Context, userID, id string, req models.UpdateRouteRequest) (*models.Route, error) {
 	var route models.Route
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE routes SET
-			alert_price = COALESCE($2, alert_price),
-			check_frequency_minutes = COALESCE($3, check_frequency_minutes),
+			alert_price = COALESCE($3, alert_price),
+			check_frequency_minutes = COALESCE($4, check_frequency_minutes),
 			updated_at = NOW()
-		WHERE id = $1
-		RETURNING id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-	`, id, req.AlertPrice, req.CheckFrequencyMinutes).Scan(
-		&route.ID, &route.Origin, &route.Destination, &route.AlertPrice,
+		WHERE id = $1 AND user_id = $2
+		RETURNING id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
+	`, id, userID, req.AlertPrice, req.CheckFrequencyMinutes).Scan(
+		&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
 		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -112,11 +112,11 @@ func (r *RouteRepo) Update(ctx context.Context, id string, req models.UpdateRout
 	return &route, nil
 }
 
-// SetStatus changes a route's status (e.g. "active", "paused").
-func (r *RouteRepo) SetStatus(ctx context.Context, id, status string) error {
+// SetStatus changes a route's status (e.g. "active", "paused"), scoped to user.
+func (r *RouteRepo) SetStatus(ctx context.Context, userID, id, status string) error {
 	res, err := r.db.ExecContext(ctx, `
-		UPDATE routes SET status = $2, updated_at = NOW() WHERE id = $1
-	`, id, status)
+		UPDATE routes SET status = $3, updated_at = NOW() WHERE id = $1 AND user_id = $2
+	`, id, userID, status)
 	if err != nil {
 		return fmt.Errorf("set route status: %w", err)
 	}
@@ -127,9 +127,9 @@ func (r *RouteRepo) SetStatus(ctx context.Context, id, status string) error {
 	return nil
 }
 
-// Delete removes a route by ID. Price history is cascade-deleted.
-func (r *RouteRepo) Delete(ctx context.Context, id string) error {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM routes WHERE id = $1`, id)
+// Delete removes a route by ID, scoped to user. Price history is cascade-deleted.
+func (r *RouteRepo) Delete(ctx context.Context, userID, id string) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM routes WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("delete route: %w", err)
 	}
@@ -145,7 +145,7 @@ func scanRoutes(rows *sql.Rows) ([]models.Route, error) {
 	for rows.Next() {
 		var route models.Route
 		if err := rows.Scan(
-			&route.ID, &route.Origin, &route.Destination, &route.AlertPrice,
+			&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
 			&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan route: %w", err)
