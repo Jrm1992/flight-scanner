@@ -5,15 +5,53 @@ import type {
   SearchResponse,
   HistoryResponse,
   Alert,
+  AuthResponse,
+  RegisterRequest,
+  LoginRequest,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+// Token management
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+  if (typeof window !== "undefined") {
+    if (token) {
+      localStorage.setItem("token", token);
+    } else {
+      localStorage.removeItem("token");
+    }
+  }
+}
+
+export function loadAuthToken(): string | null {
+  if (typeof window !== "undefined") {
+    authToken = localStorage.getItem("token");
+  }
+  return authToken;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string>),
+  };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers,
   });
+
+  if (res.status === 401) {
+    setAuthToken(null);
+    window.dispatchEvent(new Event("auth:logout"));
+    throw new Error("Session expired");
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -21,6 +59,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return res.json();
+}
+
+// Auth
+export async function register(req: RegisterRequest): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function login(req: LoginRequest): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
 
 // Routes
