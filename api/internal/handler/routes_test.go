@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/jose/flight-scanner/internal/middleware"
 	"github.com/jose/flight-scanner/internal/models"
 	"github.com/jose/flight-scanner/internal/repository"
 )
@@ -21,7 +22,7 @@ type mockRouteRepo struct {
 	err     error
 }
 
-func (m *mockRouteRepo) Create(_ context.Context, req models.CreateRouteRequest) (*models.Route, error) {
+func (m *mockRouteRepo) Create(_ context.Context, _ string, req models.CreateRouteRequest) (*models.Route, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -30,22 +31,22 @@ func (m *mockRouteRepo) Create(_ context.Context, req models.CreateRouteRequest)
 	return r, nil
 }
 
-func (m *mockRouteRepo) ListAll(_ context.Context) ([]models.Route, error) {
+func (m *mockRouteRepo) ListAll(_ context.Context, _ string) ([]models.Route, error) {
 	return m.routes, m.err
 }
 
-func (m *mockRouteRepo) Update(_ context.Context, id string, req models.UpdateRouteRequest) (*models.Route, error) {
+func (m *mockRouteRepo) Update(_ context.Context, _, _ string, _ models.UpdateRouteRequest) (*models.Route, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.updated, nil
 }
 
-func (m *mockRouteRepo) Delete(_ context.Context, id string) error { return m.err }
-func (m *mockRouteRepo) SetStatus(_ context.Context, id, status string) error {
+func (m *mockRouteRepo) Delete(_ context.Context, _, _ string) error { return m.err }
+func (m *mockRouteRepo) SetStatus(_ context.Context, _, _, _ string) error {
 	return m.err
 }
-func (m *mockRouteRepo) GetByID(_ context.Context, id string) (*models.Route, error) {
+func (m *mockRouteRepo) GetByID(_ context.Context, _, _ string) (*models.Route, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -65,6 +66,12 @@ func (m *mockMonitor) StartRoute(_ models.Route) { m.started = true }
 func (m *mockMonitor) StopRoute(_ string)         { m.stopped = true }
 func (m *mockMonitor) RestartRoute(_ models.Route) {
 	m.restarted = true
+}
+
+// helper to inject user into context
+func withUserCtx(req *http.Request) *http.Request {
+	ctx := context.WithValue(req.Context(), middleware.UserIDKey, "test-user-id")
+	return req.WithContext(ctx)
 }
 
 // --- tests ---
@@ -93,7 +100,7 @@ func TestRouteHandler_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewRouteHandler(tt.repo, &mockMonitor{}, &mockPriceHistoryRepo{})
-			req := httptest.NewRequest(http.MethodGet, "/api/routes", nil)
+			req := withUserCtx(httptest.NewRequest(http.MethodGet, "/api/routes", nil))
 			w := httptest.NewRecorder()
 			h.List(w, req)
 
@@ -141,7 +148,7 @@ func TestRouteHandler_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mon := &mockMonitor{}
 			h := NewRouteHandler(&mockRouteRepo{}, mon, &mockPriceHistoryRepo{})
-			req := httptest.NewRequest(http.MethodPost, "/api/routes", bytes.NewBufferString(tt.payload))
+			req := withUserCtx(httptest.NewRequest(http.MethodPost, "/api/routes", bytes.NewBufferString(tt.payload)))
 			w := httptest.NewRecorder()
 			h.Create(w, req)
 
@@ -179,7 +186,7 @@ func TestRouteHandler_Update(t *testing.T) {
 			mon := &mockMonitor{}
 			h := NewRouteHandler(tt.repo, mon, &mockPriceHistoryRepo{})
 			payload := `{"alert_price":400}`
-			req := httptest.NewRequest(http.MethodPut, "/api/routes/r-1", bytes.NewBufferString(payload))
+			req := withUserCtx(httptest.NewRequest(http.MethodPut, "/api/routes/r-1", bytes.NewBufferString(payload)))
 			req.SetPathValue("id", "r-1")
 			w := httptest.NewRecorder()
 			h.Update(w, req)
@@ -198,7 +205,7 @@ func TestRouteHandler_Delete(t *testing.T) {
 	mon := &mockMonitor{}
 	h := NewRouteHandler(&mockRouteRepo{}, mon, &mockPriceHistoryRepo{})
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/routes/r-1", nil)
+	req := withUserCtx(httptest.NewRequest(http.MethodDelete, "/api/routes/r-1", nil))
 	req.SetPathValue("id", "r-1")
 	w := httptest.NewRecorder()
 	h.Delete(w, req)
@@ -240,7 +247,7 @@ func TestRouteHandler_PauseResume(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mon := &mockMonitor{}
 			h := NewRouteHandler(tt.repo, mon, &mockPriceHistoryRepo{})
-			req := httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/action", nil)
+			req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/action", nil))
 			req.SetPathValue("id", "r-1")
 			w := httptest.NewRecorder()
 			tt.handler(h)(w, req)

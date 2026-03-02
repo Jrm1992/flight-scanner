@@ -17,11 +17,11 @@ type mockAlertRepo struct {
 	err    error
 }
 
-func (m *mockAlertRepo) ListAll(_ context.Context) ([]models.Alert, error) {
+func (m *mockAlertRepo) ListAll(_ context.Context, _ string) ([]models.Alert, error) {
 	return m.alerts, m.err
 }
 
-func (m *mockAlertRepo) ListByRoute(_ context.Context, routeID string) ([]models.Alert, error) {
+func (m *mockAlertRepo) ListByRoute(_ context.Context, _, routeID string) ([]models.Alert, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -34,7 +34,7 @@ func (m *mockAlertRepo) ListByRoute(_ context.Context, routeID string) ([]models
 	return filtered, nil
 }
 
-func (m *mockAlertRepo) MarkRead(_ context.Context, id string) error {
+func (m *mockAlertRepo) MarkRead(_ context.Context, _, id string) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -83,7 +83,7 @@ func TestAlertHandler_List(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewAlertHandler(tt.repo)
-			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			req := withUserCtx(httptest.NewRequest(http.MethodGet, tt.path, nil))
 			w := httptest.NewRecorder()
 			h.List(w, req)
 
@@ -129,7 +129,7 @@ func TestAlertHandler_MarkRead(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewAlertHandler(tt.repo)
-			req := httptest.NewRequest(http.MethodPatch, "/api/alerts/"+tt.alertID+"/mark-read", nil)
+			req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/alerts/"+tt.alertID+"/mark-read", nil))
 			req.SetPathValue("id", tt.alertID)
 			w := httptest.NewRecorder()
 			h.MarkRead(w, req)

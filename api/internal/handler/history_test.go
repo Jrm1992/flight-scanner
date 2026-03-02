@@ -19,18 +19,18 @@ type mockPriceHistoryRepo struct {
 	err     error
 }
 
-func (m *mockPriceHistoryRepo) GetByRoute(_ context.Context, _ string, _ int) ([]models.PriceHistory, error) {
+func (m *mockPriceHistoryRepo) GetByRoute(_ context.Context, _, _ string, _ int) ([]models.PriceHistory, error) {
 	return m.history, m.err
 }
 
-func (m *mockPriceHistoryRepo) GetStats(_ context.Context, _ string, _ int) (*models.PriceStats, error) {
+func (m *mockPriceHistoryRepo) GetStats(_ context.Context, _, _ string, _ int) (*models.PriceStats, error) {
 	if m.stats != nil {
 		return m.stats, m.err
 	}
 	return &models.PriceStats{}, m.err
 }
 
-func (m *mockPriceHistoryRepo) GetLatestPrices(_ context.Context, _ []string) (map[string]models.PriceHistory, error) {
+func (m *mockPriceHistoryRepo) GetLatestPrices(_ context.Context, _ string, _ []string) (map[string]models.PriceHistory, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -78,7 +78,7 @@ func TestHistoryHandler_GetHistory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHistoryHandler(tt.repo)
-			req := httptest.NewRequest(http.MethodGet, "/api/routes/"+tt.routeID+"/history"+tt.query, nil)
+			req := withUserCtx(httptest.NewRequest(http.MethodGet, "/api/routes/"+tt.routeID+"/history"+tt.query, nil))
 			req.SetPathValue("id", tt.routeID)
 			w := httptest.NewRecorder()
 			h.GetHistory(w, req)
@@ -134,7 +134,7 @@ func TestHistoryHandler_Export(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := NewHistoryHandler(repo)
-			req := httptest.NewRequest(http.MethodGet, "/api/routes/r-1234567890/history/export"+tt.query, nil)
+			req := withUserCtx(httptest.NewRequest(http.MethodGet, "/api/routes/r-1234567890/history/export"+tt.query, nil))
 			req.SetPathValue("id", "r-1234567890")
 			w := httptest.NewRecorder()
 			h.Export(w, req)

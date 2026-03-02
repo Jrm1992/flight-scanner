@@ -7,6 +7,7 @@ import (
 func TestLoad_Success(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
 	t.Setenv("SERPAPI_KEY", "key-123")
+	t.Setenv("JWT_SECRET", "test-jwt-secret-32-chars-long!!")
 
 	cfg, err := Load()
 	if err != nil {
@@ -50,6 +51,7 @@ func TestLoad_InvalidServerPort(t *testing.T) {
 
 func TestLoad_CustomValues(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://test@localhost/test")
+	t.Setenv("JWT_SECRET", "test-jwt-secret-32-chars-long!!")
 	t.Setenv("SERVER_PORT", "9090")
 	t.Setenv("ENV", "production")
 	t.Setenv("FRONTEND_URL", "https://app.example.com")
