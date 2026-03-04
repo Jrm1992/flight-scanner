@@ -65,8 +65,8 @@ jobs:
             # Deploy
             cd /home/ec2-user/flight-scanner
             export ECR_REGISTRY=$ECR_REGISTRY
-            docker compose -f docker-compose.prod.yml down
-            docker compose -f docker-compose.prod.yml up -d
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up -d
 
             # Cleanup old images
             docker image prune -f
