@@ -6,67 +6,23 @@ on:
     types: [completed]
     branches: [main]
 
-env:
-  AWS_REGION: us-east-1
-  ECR_API_REPO: flight-scanner-api
-  ECR_WEB_REPO: flight-scanner-web
-
 jobs:
   deploy:
-    name: Build & Deploy to EC2
+    name: Deploy to VPS
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push API image
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_API_REPO:latest -t $ECR_REGISTRY/$ECR_API_REPO:${{ github.sha }} ./api
-          docker push $ECR_REGISTRY/$ECR_API_REPO --all-tags
-
-      - name: Build and push Web image
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_WEB_REPO:latest -t $ECR_REGISTRY/$ECR_WEB_REPO:${{ github.sha }} ./web
-          docker push $ECR_REGISTRY/$ECR_WEB_REPO --all-tags
-
-      - name: Deploy to EC2
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REGISTRY,ECR_API_REPO,ECR_WEB_REPO,AWS_REGION
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # Login to ECR
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-
-            # Pull latest images
-            docker pull $ECR_REGISTRY/$ECR_API_REPO:latest
-            docker pull $ECR_REGISTRY/$ECR_WEB_REPO:latest
-
-            # Deploy
-            cd /home/ec2-user/flight-scanner
-            export ECR_REGISTRY=$ECR_REGISTRY
-            docker-compose -f docker-compose.prod.yml down
-            docker-compose -f docker-compose.prod.yml up -d
-
-            # Cleanup old images
+            cd /app/flight-scanner
+            git pull origin main
+            docker compose up --build -d
             docker image prune -f
+            sleep 5
+            curl -sf http://localhost/health || (docker compose logs --tail=20 && exit 1)
