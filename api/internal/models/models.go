@@ -36,6 +36,8 @@ type Route struct {
 	UserID                string    `json:"user_id"`
 	Origin                string    `json:"origin"`
 	Destination           string    `json:"destination"`
+	DepartureDate         string    `json:"departure_date"`
+	ReturnDate            *string   `json:"return_date,omitempty"`
 	AlertPrice            float64   `json:"alert_price"`
 	CheckFrequencyMinutes int       `json:"check_frequency_minutes"`
 	Status                string    `json:"status"`
@@ -77,6 +79,8 @@ type Alert struct {
 type CreateRouteRequest struct {
 	Origin                string  `json:"origin"`
 	Destination           string  `json:"destination"`
+	DepartureDate         string  `json:"departure_date"`
+	ReturnDate            *string `json:"return_date,omitempty"`
 	AlertPrice            float64 `json:"alert_price"`
 	CheckFrequencyMinutes int     `json:"check_frequency_minutes"`
 }

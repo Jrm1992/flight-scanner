@@ -72,6 +72,11 @@ var migrations = []struct {
 		ALTER TABLE routes ADD COLUMN user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE;
 		CREATE INDEX IF NOT EXISTS idx_routes_user ON routes(user_id);`,
 	},
+	{
+		name: "add_dates_to_routes",
+		sql: `ALTER TABLE routes ADD COLUMN departure_date DATE NOT NULL DEFAULT CURRENT_DATE + 1;
+		ALTER TABLE routes ADD COLUMN return_date DATE;`,
+	},
 }
 
 // RunMigrations executes all pending migrations in order.
