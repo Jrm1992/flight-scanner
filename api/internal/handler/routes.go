@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jose/flight-scanner/internal/middleware"
 	"github.com/jose/flight-scanner/internal/models"
@@ -57,6 +58,27 @@ func (h *RouteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.CheckFrequencyMinutes < 0 {
 		writeError(w, http.StatusBadRequest, "check_frequency_minutes cannot be negative")
 		return
+	}
+
+	departure, err := time.Parse("2006-01-02", req.DepartureDate)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "departure_date must be in YYYY-MM-DD format")
+		return
+	}
+	if departure.Before(time.Now().Truncate(24 * time.Hour)) {
+		writeError(w, http.StatusBadRequest, "departure_date must be today or in the future")
+		return
+	}
+	if req.ReturnDate != nil {
+		ret, err := time.Parse("2006-01-02", *req.ReturnDate)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "return_date must be in YYYY-MM-DD format")
+			return
+		}
+		if ret.Before(departure) {
+			writeError(w, http.StatusBadRequest, "return_date must be on or after departure_date")
+			return
+		}
 	}
 
 	userID := middleware.UserIDFromContext(r.Context())
