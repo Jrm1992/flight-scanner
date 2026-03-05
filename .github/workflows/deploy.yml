@@ -8,21 +8,19 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to VPS
-    runs-on: ubuntu-latest
+    name: Deploy to homeserver
+    runs-on: self-hosted
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            cd /app/flight-scanner
-            git pull origin main
-            docker compose up --build -d
-            docker image prune -f
-            sleep 5
-            curl -sf http://localhost/health || (docker compose logs --tail=20 && exit 1)
+      - uses: actions/checkout@v4
+
+      - name: Build and deploy
+        run: |
+          docker compose up --build -d
+          docker image prune -f
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -sf http://localhost/health || (docker compose logs --tail=20 && exit 1)
