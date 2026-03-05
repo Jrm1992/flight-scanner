@@ -19,6 +19,19 @@ func NewRouteRepo(db *sql.DB) *RouteRepo {
 	return &RouteRepo{db: db}
 }
 
+const routeColumns = `id, user_id, origin, destination, departure_date, return_date, alert_price, check_frequency_minutes, status, created_at, updated_at`
+
+func scanRoute(scanner interface{ Scan(...any) error }) (*models.Route, error) {
+	var route models.Route
+	err := scanner.Scan(
+		&route.ID, &route.UserID, &route.Origin, &route.Destination,
+		&route.DepartureDate, &route.ReturnDate,
+		&route.AlertPrice, &route.CheckFrequencyMinutes, &route.Status,
+		&route.CreatedAt, &route.UpdatedAt,
+	)
+	return &route, err
+}
+
 // Create inserts a new route and returns it with the generated ID.
 func (r *RouteRepo) Create(ctx context.Context, userID string, req models.CreateRouteRequest) (*models.Route, error) {
 	freq := req.CheckFrequencyMinutes
@@ -26,47 +39,37 @@ func (r *RouteRepo) Create(ctx context.Context, userID string, req models.Create
 		freq = 60
 	}
 
-	var route models.Route
-	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO routes (user_id, origin, destination, alert_price, check_frequency_minutes)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-	`, userID, req.Origin, req.Destination, req.AlertPrice, freq).Scan(
-		&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
-		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
-	)
+	route, err := scanRoute(r.db.QueryRowContext(ctx, `
+		INSERT INTO routes (user_id, origin, destination, departure_date, return_date, alert_price, check_frequency_minutes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING `+routeColumns,
+		userID, req.Origin, req.Destination, req.DepartureDate, req.ReturnDate, req.AlertPrice, freq,
+	))
 	if err != nil {
 		return nil, fmt.Errorf("insert route: %w", err)
 	}
-	return &route, nil
+	return route, nil
 }
 
 // GetByID retrieves a single route by ID, scoped to the user.
 func (r *RouteRepo) GetByID(ctx context.Context, userID, id string) (*models.Route, error) {
-	var route models.Route
-	err := r.db.QueryRowContext(ctx, `
-		SELECT id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-		FROM routes WHERE id = $1 AND user_id = $2
-	`, id, userID).Scan(
-		&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
-		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
-	)
+	route, err := scanRoute(r.db.QueryRowContext(ctx,
+		`SELECT `+routeColumns+` FROM routes WHERE id = $1 AND user_id = $2`, id, userID,
+	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get route: %w", err)
 	}
-	return &route, nil
+	return route, nil
 }
 
 // ListActive returns all routes with status 'active' across all users (used by monitor).
 func (r *RouteRepo) ListActive(ctx context.Context) ([]models.Route, error) {
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-		FROM routes WHERE status = 'active'
-		ORDER BY created_at DESC
-	`)
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT `+routeColumns+` FROM routes WHERE status = 'active' ORDER BY created_at DESC`,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("list active routes: %w", err)
 	}
@@ -77,10 +80,9 @@ func (r *RouteRepo) ListActive(ctx context.Context) ([]models.Route, error) {
 
 // ListAll returns all routes for a specific user.
 func (r *RouteRepo) ListAll(ctx context.Context, userID string) ([]models.Route, error) {
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-		FROM routes WHERE user_id = $1 ORDER BY created_at DESC
-	`, userID)
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT `+routeColumns+` FROM routes WHERE user_id = $1 ORDER BY created_at DESC`, userID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("list routes: %w", err)
 	}
@@ -91,25 +93,22 @@ func (r *RouteRepo) ListAll(ctx context.Context, userID string) ([]models.Route,
 
 // Update modifies a route's alert_price and/or check_frequency_minutes, scoped to user.
 func (r *RouteRepo) Update(ctx context.Context, userID, id string, req models.UpdateRouteRequest) (*models.Route, error) {
-	var route models.Route
-	err := r.db.QueryRowContext(ctx, `
+	route, err := scanRoute(r.db.QueryRowContext(ctx, `
 		UPDATE routes SET
 			alert_price = COALESCE($3, alert_price),
 			check_frequency_minutes = COALESCE($4, check_frequency_minutes),
 			updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
-		RETURNING id, user_id, origin, destination, alert_price, check_frequency_minutes, status, created_at, updated_at
-	`, id, userID, req.AlertPrice, req.CheckFrequencyMinutes).Scan(
-		&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
-		&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
-	)
+		RETURNING `+routeColumns,
+		id, userID, req.AlertPrice, req.CheckFrequencyMinutes,
+	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("update route: %w", err)
 	}
-	return &route, nil
+	return route, nil
 }
 
 // SetStatus changes a route's status (e.g. "active", "paused"), scoped to user.
@@ -143,14 +142,11 @@ func (r *RouteRepo) Delete(ctx context.Context, userID, id string) error {
 func scanRoutes(rows *sql.Rows) ([]models.Route, error) {
 	var routes []models.Route
 	for rows.Next() {
-		var route models.Route
-		if err := rows.Scan(
-			&route.ID, &route.UserID, &route.Origin, &route.Destination, &route.AlertPrice,
-			&route.CheckFrequencyMinutes, &route.Status, &route.CreatedAt, &route.UpdatedAt,
-		); err != nil {
+		route, err := scanRoute(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan route: %w", err)
 		}
-		routes = append(routes, route)
+		routes = append(routes, *route)
 	}
 	return routes, rows.Err()
 }
