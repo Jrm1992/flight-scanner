@@ -129,17 +129,32 @@ func TestRouteHandler_Create(t *testing.T) {
 	}{
 		{
 			name:     "valid",
-			payload:  `{"origin":"GIG","destination":"SCL","alert_price":500,"check_frequency_minutes":60}`,
+			payload:  `{"origin":"GIG","destination":"SCL","departure_date":"2099-12-01","alert_price":500,"check_frequency_minutes":60}`,
+			wantCode: http.StatusCreated,
+		},
+		{
+			name:     "valid with return date",
+			payload:  `{"origin":"GIG","destination":"SCL","departure_date":"2099-12-01","return_date":"2099-12-15","alert_price":500,"check_frequency_minutes":60}`,
 			wantCode: http.StatusCreated,
 		},
 		{
 			name:     "invalid IATA",
-			payload:  `{"origin":"XX","destination":"SCL","alert_price":500}`,
+			payload:  `{"origin":"XX","destination":"SCL","departure_date":"2099-12-01","alert_price":500}`,
 			wantCode: http.StatusBadRequest,
 		},
 		{
 			name:     "missing price",
-			payload:  `{"origin":"GIG","destination":"SCL"}`,
+			payload:  `{"origin":"GIG","destination":"SCL","departure_date":"2099-12-01"}`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "missing departure date",
+			payload:  `{"origin":"GIG","destination":"SCL","alert_price":500}`,
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "return before departure",
+			payload:  `{"origin":"GIG","destination":"SCL","departure_date":"2099-12-15","return_date":"2099-12-01","alert_price":500}`,
 			wantCode: http.StatusBadRequest,
 		},
 	}
