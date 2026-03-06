@@ -25,6 +25,8 @@ export interface Route {
   id: string;
   origin: string;
   destination: string;
+  departure_date: string;
+  return_date?: string;
   alert_price: number;
   check_frequency_minutes: number;
   status: "active" | "paused";
@@ -38,6 +40,8 @@ export interface Route {
 export interface CreateRouteRequest {
   origin: string;
   destination: string;
+  departure_date: string;
+  return_date?: string;
   alert_price: number;
   check_frequency_minutes: number;
 }

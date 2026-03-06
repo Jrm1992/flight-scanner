@@ -18,6 +18,8 @@ export function useRoutesViewModel(monitorRequest?: MonitorRequest | null, onMon
   const [showForm, setShowForm] = useState(false);
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
   const [alertPrice, setAlertPrice] = useState("");
   const [frequency, setFrequency] = useState("60");
 
@@ -106,12 +108,16 @@ export function useRoutesViewModel(monitorRequest?: MonitorRequest | null, onMon
       await model.create({
         origin,
         destination,
+        departure_date: departureDate,
+        return_date: returnDate || undefined,
         alert_price: parseFloat(alertPrice),
         check_frequency_minutes: parseInt(frequency),
       });
       setShowForm(false);
       setOrigin("");
       setDestination("");
+      setDepartureDate("");
+      setReturnDate("");
       setAlertPrice("");
       setFrequency("60");
       setCurrentMarketPrice(null);
@@ -187,6 +193,10 @@ export function useRoutesViewModel(monitorRequest?: MonitorRequest | null, onMon
     setOrigin,
     destination,
     setDestination,
+    departureDate,
+    setDepartureDate,
+    returnDate,
+    setReturnDate,
     alertPrice,
     setAlertPrice,
     frequency,

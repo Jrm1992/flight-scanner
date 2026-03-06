@@ -41,7 +41,9 @@ export default function RouteCard({
               )}
             </p>
             <p className="text-sm text-[var(--text-secondary)]">
-              Alert at ${route.alert_price} &middot; Every{" "}
+              {route.departure_date}
+              {route.return_date && ` → ${route.return_date}`}
+              {" "}&middot; Alert at ${route.alert_price} &middot; Every{" "}
               {formatFrequency(route.check_frequency_minutes)}
             </p>
           </div>

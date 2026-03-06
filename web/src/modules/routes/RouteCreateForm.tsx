@@ -6,6 +6,10 @@ interface RouteCreateFormProps {
   onOriginChange: (v: string) => void;
   destination: string;
   onDestinationChange: (v: string) => void;
+  departureDate: string;
+  onDepartureDateChange: (v: string) => void;
+  returnDate: string;
+  onReturnDateChange: (v: string) => void;
   alertPrice: string;
   onAlertPriceChange: (v: string) => void;
   frequency: string;
@@ -16,11 +20,24 @@ interface RouteCreateFormProps {
   savings: number | null;
 }
 
+const inputClass =
+  "rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]";
+
+function getTomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+}
+
 export default function RouteCreateForm({
   origin,
   onOriginChange,
   destination,
   onDestinationChange,
+  departureDate,
+  onDepartureDateChange,
+  returnDate,
+  onReturnDateChange,
   alertPrice,
   onAlertPriceChange,
   frequency,
@@ -30,6 +47,8 @@ export default function RouteCreateForm({
   currentMarketPrice,
   savings,
 }: RouteCreateFormProps) {
+  const minDate = getTomorrow();
+
   return (
     <form
       onSubmit={onSubmit}
@@ -47,6 +66,31 @@ export default function RouteCreateForm({
         placeholder="Destination (e.g. SCL)"
         required
       />
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-[var(--text-secondary)]">
+          Departure date
+        </label>
+        <input
+          type="date"
+          value={departureDate}
+          onChange={(e) => onDepartureDateChange(e.target.value)}
+          min={minDate}
+          className={inputClass}
+          required
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-[var(--text-secondary)]">
+          Return date (optional)
+        </label>
+        <input
+          type="date"
+          value={returnDate}
+          onChange={(e) => onReturnDateChange(e.target.value)}
+          min={departureDate || minDate}
+          className={inputClass}
+        />
+      </div>
       <input
         type="number"
         placeholder="Alert price (USD)"
@@ -54,13 +98,13 @@ export default function RouteCreateForm({
         onChange={(e) => onAlertPriceChange(e.target.value)}
         min="1"
         step="0.01"
-        className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]"
+        className={inputClass}
         required
       />
       <select
         value={frequency}
         onChange={(e) => onFrequencyChange(e.target.value)}
-        className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]"
+        className={inputClass}
       >
         <option value="30">Every 30 min</option>
         <option value="60">Every 1 hour</option>

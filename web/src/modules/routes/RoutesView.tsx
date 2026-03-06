@@ -55,6 +55,10 @@ export default function RoutesView({
           onOriginChange={vm.setOrigin}
           destination={vm.destination}
           onDestinationChange={vm.setDestination}
+          departureDate={vm.departureDate}
+          onDepartureDateChange={vm.setDepartureDate}
+          returnDate={vm.returnDate}
+          onReturnDateChange={vm.setReturnDate}
           alertPrice={vm.alertPrice}
           onAlertPriceChange={vm.setAlertPrice}
           frequency={vm.frequency}
