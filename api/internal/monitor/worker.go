@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -93,17 +94,35 @@ func (w *worker) check() {
 	}
 }
 
-// fetchPrices searches Google Flights for this route over the next 30 days.
+// fetchPrices searches Google Flights for this route's configured travel dates.
 func (w *worker) fetchPrices() ([]flightapi.FlightResult, error) {
-	now := time.Now()
+	departure, err := time.Parse("2006-01-02", w.route.DepartureDate)
+	if err != nil {
+		return nil, fmt.Errorf("parse departure_date: %w", err)
+	}
+
+	// Stop monitoring if departure date has passed
+	if departure.Before(time.Now().Truncate(24 * time.Hour)) {
+		slog.Info("departure date passed, stopping monitor", "route_id", w.route.ID, "departure_date", w.route.DepartureDate)
+		return nil, nil
+	}
+
 	params := flightapi.SearchParams{
 		DepartureID:  w.route.Origin,
 		ArrivalID:    w.route.Destination,
-		OutboundDate: now.AddDate(0, 0, 1), // tomorrow
+		OutboundDate: departure,
 		Currency:     "USD",
 		Adults:       1,
 		TravelClass:  1, // economy
 	}
+
+	if w.route.ReturnDate != nil {
+		ret, err := time.Parse("2006-01-02", *w.route.ReturnDate)
+		if err == nil {
+			params.ReturnDate = &ret
+		}
+	}
+
 	return w.flightClient.Search(w.ctx, params)
 }
 
