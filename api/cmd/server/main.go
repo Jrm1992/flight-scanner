@@ -19,6 +19,8 @@ import (
 	"github.com/jose/flight-scanner/internal/middleware"
 	"github.com/jose/flight-scanner/internal/monitor"
 	"github.com/jose/flight-scanner/internal/repository"
+	"github.com/jose/flight-scanner/internal/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func main() {
@@ -32,6 +34,12 @@ func main() {
 	}
 
 	slog.Info("starting flight-scanner", "env", cfg.Env)
+
+	// Initialize OpenTelemetry
+	if err := telemetry.Init(context.Background(), "flight-scanner-api", cfg.OTLPEndpoint); err != nil {
+		slog.Warn("failed to initialize telemetry", "err", err)
+	}
+	defer telemetry.Shutdown(context.Background())
 
 	// Connect to PostgreSQL
 	db, err := database.Connect(context.Background(), cfg.DatabaseURL)
@@ -108,13 +116,13 @@ func main() {
 	mux.HandleFunc("GET /api/alerts", auth(alertHandler.List))
 	mux.HandleFunc("PATCH /api/alerts/{id}/mark-read", auth(alertHandler.MarkRead))
 
-	// CORS middleware
+	// Middleware: CORS + OpenTelemetry HTTP instrumentation
 	cors := middleware.CORS(cfg.FrontendURL)
 
 	addr := fmt.Sprintf(":%d", cfg.ServerPort)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      cors(mux),
+		Handler:      otelhttp.NewHandler(cors(mux), "flight-scanner-api"),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,

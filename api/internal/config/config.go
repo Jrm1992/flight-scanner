@@ -9,12 +9,13 @@ import (
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
-	DatabaseURL string
-	SerpAPIKey  string
-	JWTSecret   string
-	ServerPort  int
-	Env         string
-	FrontendURL string
+	DatabaseURL  string
+	SerpAPIKey   string
+	JWTSecret    string
+	OTLPEndpoint string
+	ServerPort   int
+	Env          string
+	FrontendURL  string
 }
 
 // Load reads configuration from environment variables and returns a Config.
@@ -56,12 +57,18 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("JWT_SECRET is required")
 	}
 
+	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if otlpEndpoint == "" {
+		otlpEndpoint = "localhost:4317"
+	}
+
 	return &Config{
-		DatabaseURL: dbURL,
-		SerpAPIKey:  os.Getenv("SERPAPI_KEY"),
-		JWTSecret:   jwtSecret,
-		ServerPort:  port,
-		Env:         env,
-		FrontendURL: frontendURL,
+		DatabaseURL:  dbURL,
+		SerpAPIKey:   os.Getenv("SERPAPI_KEY"),
+		JWTSecret:    jwtSecret,
+		OTLPEndpoint: otlpEndpoint,
+		ServerPort:   port,
+		Env:          env,
+		FrontendURL:  frontendURL,
 	}, nil
 }
