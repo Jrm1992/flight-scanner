@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
 
   mimir:
-    image: grafana/mimir:2
+    image: grafana/mimir:latest
     volumes:
       - ./infra/mimir-config.yaml:/etc/mimir/mimir.yaml:ro
       - mimir-data:/data/mimir
