@@ -25,9 +25,13 @@ services:
       - SERVER_PORT=8080
       - ENV=${ENV:-production}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=alloy:4317
+      - OTEL_SERVICE_NAME=flight-scanner-api
     depends_on:
       db:
         condition: service_healthy
+      alloy:
+        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
@@ -52,7 +56,67 @@ services:
         condition: service_healthy
       web:
         condition: service_started
+      grafana:
+        condition: service_started
+    restart: unless-stopped
+
+  # === Observability Stack (LGTM) ===
+
+  alloy:
+    image: grafana/alloy:latest
+    volumes:
+      - ./infra/alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: run /etc/alloy/config.alloy
+    ports:
+      - "12345:12345"
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3
+    volumes:
+      - ./infra/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2
+    volumes:
+      - ./infra/tempo-config.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    command: -config.file=/etc/tempo/tempo.yaml
+    restart: unless-stopped
+
+  mimir:
+    image: grafana/mimir:2
+    volumes:
+      - ./infra/mimir-config.yaml:/etc/mimir/mimir.yaml:ro
+      - mimir-data:/data/mimir
+    command: -config.file=/etc/mimir/mimir.yaml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+      - tempo
+      - mimir
     restart: unless-stopped
 
 volumes:
   pgdata:
+  loki-data:
+  tempo-data:
+  mimir-data:
+  grafana-data:
