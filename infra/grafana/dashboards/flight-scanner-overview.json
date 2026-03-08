@@ -78,7 +78,7 @@
       "datasource": { "uid": "loki", "type": "loki" },
       "targets": [
         {
-          "expr": "{container_name=~\".*api.*\"}",
+          "expr": "{job=\"docker\"}",
           "refId": "A"
         }
       ],

@@ -29,11 +29,3 @@ ruler_storage:
 ingester:
   ring:
     replication_factor: 1
-
-store_gateway:
-  ring:
-    replication_factor: 1
-
-compactor:
-  ring:
-    replication_factor: 1
