@@ -17,7 +17,7 @@ blocks_storage:
     dir: /data/mimir/tsdb
 
 ruler:
-  rule_path: /data/mimir/rules
+  rule_path: /data/mimir/ruler-data
   enable_api: true
   alertmanager_url: http://localhost:9009/alertmanager
 
