@@ -31,9 +31,9 @@ ingester:
     replication_factor: 1
 
 store_gateway:
-  sharding_ring:
+  ring:
     replication_factor: 1
 
 compactor:
-  sharding_ring:
+  ring:
     replication_factor: 1
