@@ -63,7 +63,7 @@ services:
   # === Observability Stack (LGTM) ===
 
   alloy:
-    image: grafana/alloy:latest
+    image: grafana/alloy:v1.14.1
     volumes:
       - ./infra/alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -73,7 +73,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.6.7
     volumes:
       - ./infra/loki-config.yaml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
@@ -81,7 +81,7 @@ services:
     restart: unless-stopped
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:2.10.3
     volumes:
       - ./infra/tempo-config.yaml:/etc/tempo/tempo.yaml:ro
       - tempo-data:/var/tempo
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
 
   mimir:
-    image: grafana/mimir:latest
+    image: grafana/mimir:3.0.4
     volumes:
       - ./infra/mimir-config.yaml:/etc/mimir/mimir.yaml:ro
       - mimir-data:/data/mimir
@@ -97,7 +97,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.4.1
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
