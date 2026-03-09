@@ -4,7 +4,7 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-flightscanner}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB:-flightscannerdb}
+      - POSTGRES_DB=${POSTGRES_DB:-flightscanner}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -19,7 +19,7 @@ services:
       context: ./api
       dockerfile: Dockerfile
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER:-flightscanner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-flightscannerdb}?sslmode=disable
+      - DATABASE_URL=postgres://${POSTGRES_USER:-flightscanner}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-flightscanner}?sslmode=disable
       - JWT_SECRET=${JWT_SECRET}
       - SERPAPI_KEY=${SERPAPI_KEY:-}
       - SERVER_PORT=8080
