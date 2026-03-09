@@ -13,8 +13,8 @@
       "datasource": { "uid": "mimir", "type": "prometheus" },
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"flight-scanner-api\"}[1m])) by (http_route) * 60",
-          "legendFormat": "{{http_route}}"
+          "expr": "sum(rate(http_server_request_duration_count{job=\"flight-scanner-api\"}[1m])) by (http_request_method) * 60",
+          "legendFormat": "{{http_request_method}}"
         }
       ],
       "fieldConfig": {
@@ -31,7 +31,7 @@
       "datasource": { "uid": "mimir", "type": "prometheus" },
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"flight-scanner-api\",http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count{service_name=\"flight-scanner-api\"}[5m])) * 100",
+          "expr": "sum(rate(http_server_request_duration_count{job=\"flight-scanner-api\",http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_count{job=\"flight-scanner-api\"}[5m])) * 100",
           "legendFormat": "error %"
         }
       ],
@@ -56,11 +56,11 @@
       "datasource": { "uid": "mimir", "type": "prometheus" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{service_name=\"flight-scanner-api\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_bucket{job=\"flight-scanner-api\"}[5m])) by (le))",
           "legendFormat": "p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{service_name=\"flight-scanner-api\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_bucket{job=\"flight-scanner-api\"}[5m])) by (le))",
           "legendFormat": "p95"
         }
       ],
