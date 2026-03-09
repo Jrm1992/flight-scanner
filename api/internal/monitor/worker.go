@@ -94,9 +94,17 @@ func (w *worker) check() {
 	}
 }
 
+// parseDate parses a date string that may come as "2006-01-02" or "2006-01-02T00:00:00Z" from Postgres.
+func parseDate(s string) (time.Time, error) {
+	if len(s) >= 10 {
+		return time.Parse("2006-01-02", s[:10])
+	}
+	return time.Parse("2006-01-02", s)
+}
+
 // fetchPrices searches Google Flights for this route's configured travel dates.
 func (w *worker) fetchPrices() ([]flightapi.FlightResult, error) {
-	departure, err := time.Parse("2006-01-02", w.route.DepartureDate)
+	departure, err := parseDate(w.route.DepartureDate)
 	if err != nil {
 		return nil, fmt.Errorf("parse departure_date: %w", err)
 	}
@@ -117,7 +125,7 @@ func (w *worker) fetchPrices() ([]flightapi.FlightResult, error) {
 	}
 
 	if w.route.ReturnDate != nil {
-		ret, err := time.Parse("2006-01-02", *w.route.ReturnDate)
+		ret, err := parseDate(*w.route.ReturnDate)
 		if err == nil {
 			params.ReturnDate = &ret
 		}
