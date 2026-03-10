@@ -22,7 +22,7 @@ export default function Select({
       )}
       <select
         id={selectId}
-        className={`rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)] transition-colors duration-[var(--transition-fast)] ${className}`}
+        className={`rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors duration-[var(--transition-fast)] ${className}`}
         {...props}
       >
         {children}

@@ -8,11 +8,11 @@ const CardContext = createContext<{ variant: CardVariant }>({ variant: "default"
 
 const variantStyles: Record<CardVariant, string> = {
   default:
-    "bg-white border-[var(--border-default)]",
+    "bg-white/5 backdrop-blur-xl border-white/10",
   highlight:
-    "bg-emerald-50/50 border-emerald-200",
+    "bg-emerald-500/5 backdrop-blur-xl border-emerald-500/20",
   muted:
-    "bg-slate-50 border-slate-200",
+    "bg-white/[0.02] backdrop-blur-xl border-white/5",
 };
 
 interface CardProps {
@@ -25,7 +25,7 @@ function Card({ variant = "default", children, className = "" }: CardProps) {
   return (
     <CardContext.Provider value={{ variant }}>
       <div
-        className={`rounded-[var(--radius-lg)] border shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-[var(--transition-base)] ${variantStyles[variant]} ${className}`}
+        className={`rounded-[var(--radius-lg)] border shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-white/15 transition-all duration-[var(--transition-base)] ${variantStyles[variant]} ${className}`}
       >
         {children}
       </div>

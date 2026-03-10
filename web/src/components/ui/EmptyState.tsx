@@ -14,7 +14,7 @@ export default function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       {icon && (
-        <div className="mb-4 text-[var(--text-tertiary)]">{icon}</div>
+        <div className="mb-4 text-cyan-500/40">{icon}</div>
       )}
       <p className="text-[var(--text-secondary)] font-medium">{title}</p>
       {description && (
