@@ -49,7 +49,6 @@ export default function AirportInput({
     setResults(matches);
     setOpen(matches.length > 0);
     setActiveIndex(-1);
-    // If it looks like an IATA code (3 uppercase letters), send it directly
     const trimmed = val.trim().toUpperCase();
     if (/^[A-Z]{3}$/.test(trimmed)) {
       onChange(trimmed);
@@ -93,23 +92,23 @@ export default function AirportInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         required={required}
-        className={`border border-gray-300 rounded px-3 py-2 bg-white text-gray-900 ${className}`}
+        className={`border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 bg-white/5 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors text-sm ${className}`}
       />
       {open && results.length > 0 && (
-        <ul className="absolute z-20 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+        <ul className="absolute z-20 top-full left-0 mt-1 w-64 bg-[#1e293b] border border-white/10 rounded-[var(--radius-lg)] shadow-[0_0_25px_rgba(0,0,0,0.5)] backdrop-blur-xl max-h-48 overflow-y-auto">
           {results.map((a, i) => (
             <li
               key={a.code}
               onMouseDown={() => handleSelect(a)}
               className={`px-3 py-2 cursor-pointer text-sm flex justify-between ${
-                i === activeIndex ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"
+                i === activeIndex ? "bg-cyan-500/15 text-cyan-400" : "hover:bg-white/10 text-[var(--text-primary)]"
               }`}
             >
               <span>
                 <span className="font-semibold">{a.code}</span>{" "}
-                <span className="text-gray-500">{a.city}</span>
+                <span className="text-[var(--text-secondary)]">{a.city}</span>
               </span>
-              <span className="text-gray-400 text-xs">{a.country}</span>
+              <span className="text-[var(--text-tertiary)] text-xs">{a.country}</span>
             </li>
           ))}
         </ul>
