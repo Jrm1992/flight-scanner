@@ -54,7 +54,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: Props) {
         <button
           type="button"
           onClick={onSwitchToLogin}
-          className="text-[var(--brand-600)] hover:text-[var(--brand-700)] font-medium"
+          className="text-cyan-400 hover:text-cyan-300 font-medium"
         >
           Sign In
         </button>
