@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import { motion } from "framer-motion";
 
 interface TabsContextValue {
   value: string;
@@ -39,7 +40,7 @@ function TabsList({
 }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-[var(--radius-lg)] bg-slate-100 p-1 ${className}`}
+      className={`inline-flex items-center gap-1 rounded-[var(--radius-lg)] bg-white/5 border border-white/10 p-1 ${className}`}
       role="tablist"
     >
       {children}
@@ -64,13 +65,20 @@ function Tab({
       role="tab"
       aria-selected={isActive}
       onClick={() => ctx.onValueChange(value)}
-      className={`px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-all duration-[var(--transition-fast)] ${
+      className={`relative px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-colors duration-[var(--transition-fast)] ${
         isActive
-          ? "bg-white text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
+          ? "text-cyan-400"
           : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
       } ${className}`}
     >
-      {children}
+      {isActive && (
+        <motion.div
+          layoutId="activeTab"
+          className="absolute inset-0 rounded-[var(--radius-md)] bg-cyan-500/15 shadow-[0_0_10px_rgba(6,182,212,0.1)]"
+          transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
+        />
+      )}
+      <span className="relative z-10">{children}</span>
     </button>
   );
 }
