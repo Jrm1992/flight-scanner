@@ -9,6 +9,7 @@ import HistoryView from "@/modules/history/HistoryView";
 import AlertsView from "@/modules/alerts/AlertsView";
 import Tabs from "@/components/ui/Tabs";
 import Button from "@/components/ui/Button";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const auth = useAuth();
@@ -19,11 +20,11 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-secondary)]">
-      <header className="bg-white border-b border-[var(--border-default)]">
+    <div className="min-h-screen">
+      <header className="bg-gradient-to-r from-[#0a0e1a] to-[#0f1629] border-b border-white/10">
         <div className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-cyan-200 bg-clip-text text-transparent">
               Flight Price Monitor
             </h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
@@ -41,7 +42,7 @@ export default function Home() {
         </div>
       </header>
 
-      <nav className="bg-white border-b border-[var(--border-default)] sticky top-0 z-10">
+      <nav className="bg-[#0a0e1a]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-3">
           <Tabs
             value={vm.tab}
@@ -59,26 +60,42 @@ export default function Home() {
       </nav>
 
       <main className="max-w-5xl mx-auto px-6 py-8">
-        {vm.chartRoute ? (
-          <HistoryView
-            route={vm.chartRoute}
-            onClose={() => vm.setChartRoute(null)}
-          />
-        ) : (
-          <>
-            {vm.tab === "search" && (
-              <SearchView onMonitor={vm.handleMonitor} />
-            )}
-            {vm.tab === "routes" && (
-              <RoutesView
-                onViewHistory={(r) => vm.setChartRoute(r)}
-                monitorRequest={vm.monitorRequest}
-                onMonitorRequestHandled={vm.clearMonitorRequest}
+        <AnimatePresence mode="wait">
+          {vm.chartRoute ? (
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <HistoryView
+                route={vm.chartRoute}
+                onClose={() => vm.setChartRoute(null)}
               />
-            )}
-            {vm.tab === "alerts" && <AlertsView />}
-          </>
-        )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key={vm.tab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              {vm.tab === "search" && (
+                <SearchView onMonitor={vm.handleMonitor} />
+              )}
+              {vm.tab === "routes" && (
+                <RoutesView
+                  onViewHistory={(r) => vm.setChartRoute(r)}
+                  monitorRequest={vm.monitorRequest}
+                  onMonitorRequestHandled={vm.clearMonitorRequest}
+                />
+              )}
+              {vm.tab === "alerts" && <AlertsView />}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
