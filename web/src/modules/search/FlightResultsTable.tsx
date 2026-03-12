@@ -1,11 +1,24 @@
+"use client";
+
 import type { FlightResult } from "@/lib/types";
 import { formatDuration, formatTime } from "@/lib/formatters";
 import Button from "@/components/ui/Button";
+import { motion } from "framer-motion";
 
 interface FlightResultsTableProps {
   results: FlightResult[];
   onMonitor?: (origin: string, destination: string, price: number) => void;
 }
+
+const containerVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function FlightResultsTable({
   results,
@@ -14,7 +27,7 @@ export default function FlightResultsTable({
   if (results.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-white">
+    <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-white/5 backdrop-blur-xl">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--border-default)] text-left text-[var(--text-secondary)]">
@@ -28,13 +41,18 @@ export default function FlightResultsTable({
             {onMonitor && <th className="py-3 px-4 font-medium">Action</th>}
           </tr>
         </thead>
-        <tbody>
+        <motion.tbody
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+        >
           {results.map((f, i) => (
-            <tr
+            <motion.tr
               key={i}
-              className="border-b border-[var(--border-default)] last:border-0 hover:bg-slate-50/50 transition-colors"
+              variants={rowVariants}
+              className="border-b border-[var(--border-default)] last:border-0 hover:bg-white/5 transition-colors duration-150"
             >
-              <td className="py-3 px-4 font-semibold text-emerald-700">
+              <td className="py-3 px-4 font-semibold text-emerald-400 font-data">
                 ${f.price}
               </td>
               <td className="py-3 px-4 text-[var(--text-primary)]">{f.airline}</td>
@@ -52,9 +70,9 @@ export default function FlightResultsTable({
               </td>
               <td className="py-3 px-4">
                 {f.stops === 0 ? (
-                  <span className="text-emerald-600 font-medium">Direct</span>
+                  <span className="text-emerald-400 font-medium">Direct</span>
                 ) : (
-                  <span className="text-amber-600">
+                  <span className="text-amber-400">
                     {f.stops} stop{f.stops > 1 ? "s" : ""}
                   </span>
                 )}
@@ -72,9 +90,9 @@ export default function FlightResultsTable({
                   </Button>
                 </td>
               )}
-            </tr>
+            </motion.tr>
           ))}
-        </tbody>
+        </motion.tbody>
       </table>
     </div>
   );
