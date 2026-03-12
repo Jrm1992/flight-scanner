@@ -4,6 +4,7 @@ import { useAlertsViewModel } from "./viewmodel";
 import AlertCard from "./AlertCard";
 import AlertFilters from "./AlertFilters";
 import Spinner from "@/components/ui/Spinner";
+import { motion } from "framer-motion";
 
 export default function AlertsView() {
   const vm = useAlertsViewModel();
@@ -35,7 +36,15 @@ export default function AlertsView() {
           No alerts yet.
         </p>
       ) : (
-        <div className="space-y-3">
+        <motion.div
+          className="space-y-3"
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.06 } },
+          }}
+        >
           {vm.alerts.map((alert) => (
             <AlertCard
               key={alert.id}
@@ -44,7 +53,7 @@ export default function AlertsView() {
               onMarkRead={() => vm.handleMarkRead(alert.id)}
             />
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );

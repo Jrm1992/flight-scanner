@@ -8,6 +8,9 @@ interface AlertFiltersProps {
   routes: Route[];
 }
 
+const selectClass =
+  "rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
+
 export default function AlertFilters({
   filter,
   onFilterChange,
@@ -20,7 +23,7 @@ export default function AlertFilters({
       <select
         value={filter}
         onChange={(e) => onFilterChange(e.target.value)}
-        className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]"
+        className={selectClass}
       >
         <option value="all">All alerts</option>
         <option value="unread">Unread</option>
@@ -29,7 +32,7 @@ export default function AlertFilters({
       <select
         value={routeFilter}
         onChange={(e) => onRouteFilterChange(e.target.value)}
-        className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]"
+        className={selectClass}
       >
         <option value="">All routes</option>
         {routes.map((r) => (
