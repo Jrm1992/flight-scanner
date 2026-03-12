@@ -38,15 +38,30 @@ export default function PriceChartGraph({
   return (
     <ResponsiveContainer width="100%" height={350}>
       <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
         <XAxis
           dataKey="time"
-          tick={{ fontSize: 11 }}
+          tick={{ fontSize: 11, fill: "#64748b" }}
+          axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+          tickLine={{ stroke: "rgba(255,255,255,0.1)" }}
           interval="preserveStartEnd"
         />
-        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+        <YAxis
+          tick={{ fontSize: 11, fill: "#64748b" }}
+          axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+          tickLine={{ stroke: "rgba(255,255,255,0.1)" }}
+          tickFormatter={(v) => `$${v}`}
+        />
         <Tooltip
           formatter={(value) => [`$${Number(value).toFixed(2)}`, ""]}
+          contentStyle={{
+            backgroundColor: "#1e293b",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "8px",
+            color: "#f1f5f9",
+          }}
+          itemStyle={{ color: "#94a3b8" }}
+          labelStyle={{ color: "#f1f5f9" }}
         />
         <ReferenceLine
           y={alertPrice}
@@ -55,14 +70,14 @@ export default function PriceChartGraph({
           label={{
             value: `Alert $${alertPrice}`,
             position: "right",
-            fill: "#ef4444",
+            fill: "#f87171",
             fontSize: 12,
           }}
         />
         <Line
           type="monotone"
           dataKey="min"
-          stroke="#059669"
+          stroke="#06b6d4"
           strokeWidth={2}
           dot={false}
           name="Min Price"
@@ -70,7 +85,7 @@ export default function PriceChartGraph({
         <Line
           type="monotone"
           dataKey="avg"
-          stroke="#2563eb"
+          stroke="#f59e0b"
           strokeWidth={2}
           dot={false}
           name="Avg Price"
@@ -78,7 +93,7 @@ export default function PriceChartGraph({
         <Line
           type="monotone"
           dataKey="max"
-          stroke="#f97316"
+          stroke="rgba(255,255,255,0.2)"
           strokeWidth={1}
           dot={false}
           name="Max Price"
