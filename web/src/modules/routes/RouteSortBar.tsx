@@ -29,8 +29,8 @@ export default function RouteSortBar({
           onClick={() => onSort(key)}
           className={`px-2.5 py-1 rounded-[var(--radius-md)] transition-colors duration-[var(--transition-fast)] ${
             sortKey === key
-              ? "bg-[var(--brand-50)] text-[var(--brand-600)] font-medium"
-              : "hover:bg-slate-100 text-[var(--text-secondary)]"
+              ? "bg-cyan-500/15 text-cyan-400 font-medium"
+              : "hover:bg-white/5 text-[var(--text-secondary)]"
           }`}
         >
           {label}

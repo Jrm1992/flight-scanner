@@ -9,6 +9,7 @@ import RouteCreateForm from "./RouteCreateForm";
 import RouteSortBar from "./RouteSortBar";
 import Button from "@/components/ui/Button";
 import Spinner from "@/components/ui/Spinner";
+import { motion } from "framer-motion";
 
 interface RoutesViewProps {
   onViewHistory: (route: Route) => void;
@@ -82,7 +83,15 @@ export default function RoutesView({
             onSort={vm.handleSort}
             sortIndicator={vm.sortIndicator}
           />
-          <div className="space-y-3">
+          <motion.div
+            className="space-y-3"
+            initial="hidden"
+            animate="show"
+            variants={{
+              hidden: {},
+              show: { transition: { staggerChildren: 0.06 } },
+            }}
+          >
             {vm.routes.map((route) =>
               vm.editingId === route.id ? (
                 <RouteEditForm
@@ -106,7 +115,7 @@ export default function RoutesView({
                 />
               )
             )}
-          </div>
+          </motion.div>
         </>
       )}
     </div>

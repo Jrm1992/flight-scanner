@@ -12,6 +12,9 @@ interface RouteEditFormProps {
   onCancel: () => void;
 }
 
+const inlineInputClass =
+  "rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
+
 export default function RouteEditForm({
   route,
   alertPrice,
@@ -34,13 +37,13 @@ export default function RouteEditForm({
             onChange={(e) => onAlertPriceChange(e.target.value)}
             min="1"
             step="0.01"
-            className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-1.5 w-28 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]"
+            className={`${inlineInputClass} w-28`}
             placeholder="Alert price"
           />
           <select
             value={frequency}
             onChange={(e) => onFrequencyChange(e.target.value)}
-            className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]"
+            className={inlineInputClass}
           >
             <option value="30">30m</option>
             <option value="60">1h</option>

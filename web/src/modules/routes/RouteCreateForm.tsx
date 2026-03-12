@@ -21,7 +21,7 @@ interface RouteCreateFormProps {
 }
 
 const inputClass =
-  "rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)]/25 focus:border-[var(--brand-500)]";
+  "rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
 
 function getTomorrow() {
   const d = new Date();
@@ -52,7 +52,7 @@ export default function RouteCreateForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="bg-white border border-[var(--border-default)] rounded-[var(--radius-lg)] p-5 mb-6 grid grid-cols-2 gap-4 shadow-[var(--shadow-sm)]"
+      className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[var(--radius-lg)] p-5 mb-6 grid grid-cols-2 gap-4 shadow-[var(--shadow-sm)]"
     >
       <AirportInput
         value={origin}
@@ -115,14 +115,14 @@ export default function RouteCreateForm({
       </select>
 
       {(estimateLoading || currentMarketPrice != null) && (
-        <div className="col-span-2 bg-blue-50/70 border border-blue-100 rounded-[var(--radius-md)] px-4 py-3 text-sm">
+        <div className="col-span-2 bg-cyan-500/10 border border-cyan-500/20 rounded-[var(--radius-md)] px-4 py-3 text-sm">
           {estimateLoading ? (
-            <span className="text-blue-600">Fetching current prices...</span>
+            <span className="text-cyan-400">Fetching current prices...</span>
           ) : currentMarketPrice != null ? (
             <div className="flex items-center gap-4 flex-wrap">
               <span className="text-[var(--text-secondary)]">
                 Current best price:{" "}
-                <span className="font-bold text-[var(--text-primary)]">
+                <span className="font-bold text-[var(--text-primary)] font-data">
                   ${currentMarketPrice.toFixed(0)}
                 </span>
               </span>
@@ -131,17 +131,17 @@ export default function RouteCreateForm({
                   <span className="text-[var(--text-tertiary)]">|</span>
                   <span className="text-[var(--text-secondary)]">
                     Your alert:{" "}
-                    <span className="font-bold">
+                    <span className="font-bold font-data">
                       ${parseFloat(alertPrice).toFixed(0)}
                     </span>
                   </span>
                   <span className="text-[var(--text-tertiary)]">|</span>
                   {savings != null && savings > 0 ? (
-                    <span className="text-emerald-700 font-semibold">
+                    <span className="text-emerald-400 font-semibold">
                       Potential savings: ${savings.toFixed(0)}
                     </span>
                   ) : (
-                    <span className="text-amber-600">
+                    <span className="text-amber-400">
                       Price is already below your alert threshold
                     </span>
                   )}
