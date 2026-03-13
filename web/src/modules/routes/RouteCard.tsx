@@ -1,7 +1,7 @@
 "use client";
 
 import type { Route } from "@/lib/types";
-import { formatFrequency } from "@/lib/formatters";
+import { formatFrequency, formatDate } from "@/lib/formatters";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -50,8 +50,8 @@ export default function RouteCard({
                 )}
               </p>
               <p className="text-sm text-[var(--text-secondary)]">
-                {route.departure_date}
-                {route.return_date && ` → ${route.return_date}`}
+                {formatDate(route.departure_date)}
+                {route.return_date && ` → ${formatDate(route.return_date)}`}
                 {" "}&middot; Alert at ${route.alert_price} &middot; Every{" "}
                 {formatFrequency(route.check_frequency_minutes)}
               </p>
