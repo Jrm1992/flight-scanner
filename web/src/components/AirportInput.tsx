@@ -52,6 +52,7 @@ export default function AirportInput({
     const trimmed = val.trim().toUpperCase();
     if (/^[A-Z]{3}$/.test(trimmed)) {
       onChange(trimmed);
+      setOpen(false);
     }
   }
 
