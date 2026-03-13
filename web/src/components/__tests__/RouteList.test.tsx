@@ -9,6 +9,7 @@ vi.mock("@/lib/api", () => ({
   pauseRoute: vi.fn(),
   resumeRoute: vi.fn(),
   updateRoute: vi.fn(),
+  searchFlights: vi.fn().mockResolvedValue({ results: [] }),
 }));
 
 import {
@@ -103,12 +104,20 @@ describe("RouteList", () => {
       target: { value: "500" },
     });
 
+    const form = screen.getByText("Start Monitoring").closest("form")!;
+    const departureDateInput = form.querySelector('input[type="date"]')!;
+    fireEvent.change(departureDateInput, {
+      target: { value: "2026-08-21" },
+    });
+
     fireEvent.click(screen.getByText("Start Monitoring"));
 
     await waitFor(() => {
       expect(mockCreateRoute).toHaveBeenCalledWith({
         origin: "GIG",
         destination: "SCL",
+        departure_date: "2026-08-21",
+        return_date: undefined,
         alert_price: 500,
         check_frequency_minutes: 60,
       });
