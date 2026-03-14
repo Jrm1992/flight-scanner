@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { searchAirports, airports, type Airport } from "@/lib/airports";
 
 interface Props {
@@ -11,6 +11,12 @@ interface Props {
   className?: string;
 }
 
+function displayValue(code: string): string {
+  if (!code) return "";
+  const match = airports.find((a) => a.code === code);
+  return match ? `${match.code} - ${match.city}` : code;
+}
+
 export default function AirportInput({
   value,
   onChange,
@@ -18,30 +24,12 @@ export default function AirportInput({
   required,
   className = "",
 }: Props) {
-  const [query, setQuery] = useState(value);
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<Airport[]>([]);
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (value) {
-      const match = airports.find((a) => a.code === value);
-      setQuery(match ? `${match.code} - ${match.city}` : value);
-    } else {
-      setQuery("");
-    }
-  }, [value]);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   function handleInput(val: string) {
     setQuery(val);
@@ -57,7 +45,7 @@ export default function AirportInput({
   }
 
   function handleSelect(airport: Airport) {
-    setQuery(`${airport.code} - ${airport.city}`);
+    setQuery("");
     onChange(airport.code);
     setOpen(false);
   }
@@ -78,38 +66,45 @@ export default function AirportInput({
     }
   }
 
+  function handleBlur(e: React.FocusEvent) {
+    if (!wrapperRef.current?.contains(e.relatedTarget as Node)) {
+      setOpen(false);
+      setFocused(false);
+      setQuery("");
+    }
+  }
+
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className="relative" tabIndex={-1} onBlur={handleBlur}>
       <input
         type="text"
-        value={query}
+        value={focused ? query : displayValue(value)}
         onChange={(e) => handleInput(e.target.value)}
         onFocus={() => {
-          if (value) {
-            setQuery("");
-            handleInput("");
-          }
+          setFocused(true);
+          setQuery("");
+          handleInput("");
         }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         required={required}
-        className={`border border-[var(--border-default)] rounded-[var(--radius-md)] px-3 py-2 bg-white/5 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors text-sm ${className}`}
+        className={`border border-border rounded-md px-3 py-2 bg-white/5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors text-sm ${className}`}
       />
       {open && results.length > 0 && (
-        <ul className="absolute z-20 top-full left-0 mt-1 w-64 bg-[#1e293b] border border-white/10 rounded-[var(--radius-lg)] shadow-[0_0_25px_rgba(0,0,0,0.5)] backdrop-blur-xl max-h-48 overflow-y-auto">
+        <ul className="absolute z-20 top-full left-0 mt-1 w-64 bg-[#1e293b] border border-white/10 rounded-lg shadow-[0_0_25px_rgba(0,0,0,0.5)] backdrop-blur-xl max-h-48 overflow-y-auto">
           {results.map((a, i) => (
             <li
               key={a.code}
               onMouseDown={() => handleSelect(a)}
               className={`px-3 py-2 cursor-pointer text-sm flex justify-between ${
-                i === activeIndex ? "bg-cyan-500/15 text-cyan-400" : "hover:bg-white/10 text-[var(--text-primary)]"
+                i === activeIndex ? "bg-cyan-500/15 text-cyan-400" : "hover:bg-white/10 text-foreground"
               }`}
             >
               <span>
                 <span className="font-semibold">{a.code}</span>{" "}
-                <span className="text-[var(--text-secondary)]">{a.city}</span>
+                <span className="text-muted">{a.city}</span>
               </span>
-              <span className="text-[var(--text-tertiary)] text-xs">{a.country}</span>
+              <span className="text-muted-foreground text-xs">{a.country}</span>
             </li>
           ))}
         </ul>
