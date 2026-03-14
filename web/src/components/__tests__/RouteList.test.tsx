@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
-import RouteList from "../RouteList";
+import RouteList from "@/modules/routes/RoutesView";
 
 vi.mock("@/lib/api", () => ({
   getRoutes: vi.fn(),
