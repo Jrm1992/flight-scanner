@@ -27,10 +27,10 @@ export default function FlightResultsTable({
   if (results.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-white/5 backdrop-blur-xl">
+    <div className="overflow-x-auto rounded-lg border border-border bg-white/5 backdrop-blur-xl">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[var(--border-default)] text-left text-[var(--text-secondary)]">
+          <tr className="border-b border-border text-left text-muted">
             <th className="py-3 px-4 font-medium">Price</th>
             <th className="py-3 px-4 font-medium">Airline</th>
             <th className="py-3 px-4 font-medium">Flight</th>
@@ -50,22 +50,22 @@ export default function FlightResultsTable({
             <motion.tr
               key={i}
               variants={rowVariants}
-              className="border-b border-[var(--border-default)] last:border-0 hover:bg-white/5 transition-colors duration-150"
+              className="border-b border-border last:border-0 hover:bg-white/5 transition-colors duration-150"
             >
               <td className="py-3 px-4 font-semibold text-emerald-400 font-data">
                 ${f.price}
               </td>
-              <td className="py-3 px-4 text-[var(--text-primary)]">{f.airline}</td>
-              <td className="py-3 px-4 text-[var(--text-tertiary)]">
+              <td className="py-3 px-4 text-foreground">{f.airline}</td>
+              <td className="py-3 px-4 text-muted-foreground">
                 {f.flight_number}
               </td>
-              <td className="py-3 px-4 text-[var(--text-primary)]">
+              <td className="py-3 px-4 text-foreground">
                 {f.departure_code} &rarr; {f.arrival_code}
               </td>
-              <td className="py-3 px-4 text-[var(--text-primary)]">
+              <td className="py-3 px-4 text-foreground">
                 {formatTime(f.departure)}
               </td>
-              <td className="py-3 px-4 text-[var(--text-primary)]">
+              <td className="py-3 px-4 text-foreground">
                 {formatDuration(f.duration_minutes)}
               </td>
               <td className="py-3 px-4">

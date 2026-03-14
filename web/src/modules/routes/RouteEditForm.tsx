@@ -13,7 +13,7 @@ interface RouteEditFormProps {
 }
 
 const inlineInputClass =
-  "rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
+  "rounded-md border border-border bg-white/5 px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
 
 export default function RouteEditForm({
   route,
@@ -28,7 +28,7 @@ export default function RouteEditForm({
     <Card>
       <Card.Body>
         <form onSubmit={onSave} className="flex items-center gap-3">
-          <span className="font-semibold text-[var(--text-primary)]">
+          <span className="font-semibold text-foreground">
             {route.origin} &rarr; {route.destination}
           </span>
           <input

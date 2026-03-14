@@ -13,7 +13,7 @@ export default function SearchView({ onMonitor }: SearchViewProps) {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-5">
+      <h2 className="text-xl font-semibold text-foreground mb-5">
         Search Flights
       </h2>
 

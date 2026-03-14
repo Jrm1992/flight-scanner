@@ -29,7 +29,7 @@ export default function PriceChartGraph({
 }: PriceChartGraphProps) {
   if (data.length === 0) {
     return (
-      <p className="text-[var(--text-secondary)] text-center py-12">
+      <p className="text-muted text-center py-12">
         No price data yet for this period.
       </p>
     );

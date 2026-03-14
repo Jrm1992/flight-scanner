@@ -49,7 +49,7 @@ export default function RegisterForm({ onRegister, onSwitchToLogin }: Props) {
         Create Account
       </Button>
 
-      <p className="text-center text-sm text-[var(--text-secondary)]">
+      <p className="text-center text-sm text-muted">
         Already have an account?{" "}
         <button
           type="button"

@@ -25,20 +25,20 @@ export default function AlertCard({ alert, route, onMarkRead }: AlertCardProps) 
         <Card.Body className="flex items-center justify-between">
           <div className="space-y-1">
             {route && (
-              <span className="text-sm font-medium text-[var(--text-secondary)]">
+              <span className="text-sm font-medium text-muted">
                 {route.origin} &rarr; {route.destination}
               </span>
             )}
             <div className="flex items-center gap-2">
               {!alert.notified && <Badge variant="success" dot>New</Badge>}
-              <p className="font-medium text-[var(--text-primary)]">
+              <p className="font-medium text-foreground">
                 Price dropped to{" "}
                 <span className="text-emerald-400 font-bold font-data">
                   ${alert.triggered_price.toFixed(0)}
                 </span>
               </p>
             </div>
-            <p className="text-sm text-[var(--text-secondary)]">
+            <p className="text-sm text-muted">
               Alert threshold: <span className="font-data">${alert.alert_price.toFixed(0)}</span>
               {savings > 0 && (
                 <span className="text-emerald-400 ml-2 font-medium">
@@ -46,7 +46,7 @@ export default function AlertCard({ alert, route, onMarkRead }: AlertCardProps) 
                 </span>
               )}
             </p>
-            <p className="text-xs text-[var(--text-tertiary)]">
+            <p className="text-xs text-muted-foreground">
               {new Date(alert.triggered_at).toLocaleString()}
             </p>
           </div>

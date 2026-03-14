@@ -15,14 +15,14 @@ export default function Select({
       {label && (
         <label
           htmlFor={selectId}
-          className="text-xs font-medium text-[var(--text-secondary)]"
+          className="text-xs font-medium text-muted"
         >
           {label}
         </label>
       )}
       <select
         id={selectId}
-        className={`rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors duration-[var(--transition-fast)] ${className}`}
+        className={`rounded-md border border-border bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors duration-[var(--transition-fast)] ${className}`}
         {...props}
       >
         {children}

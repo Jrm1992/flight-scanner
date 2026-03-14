@@ -16,14 +16,14 @@ export default function Input({
       {label && (
         <label
           htmlFor={inputId}
-          className="text-xs font-medium text-[var(--text-secondary)]"
+          className="text-xs font-medium text-muted"
         >
           {label}
         </label>
       )}
       <input
         id={inputId}
-        className={`rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors duration-[var(--transition-fast)] ${error ? "border-red-500/40 focus:ring-red-500/25 focus:border-red-500/50" : ""} ${className}`}
+        className={`rounded-md border border-border bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-colors duration-[var(--transition-fast)] ${error ? "border-red-500/40 focus:ring-red-500/25 focus:border-red-500/50" : ""} ${className}`}
         {...props}
       />
       {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}

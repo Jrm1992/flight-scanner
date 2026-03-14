@@ -20,7 +20,7 @@ export default function StatCard({
 }: StatCardProps) {
   return (
     <div
-      className={`rounded-[var(--radius-lg)] backdrop-blur-sm p-4 text-center ${colorSchemes[colorScheme]} ${className}`}
+      className={`rounded-lg backdrop-blur-sm p-4 text-center ${colorSchemes[colorScheme]} ${className}`}
     >
       <p className="text-xs font-medium opacity-70">{label}</p>
       <p className="text-xl font-bold mt-1 font-data">{value}</p>

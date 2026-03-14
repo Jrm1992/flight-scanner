@@ -21,7 +21,7 @@ interface RouteCreateFormProps {
 }
 
 const inputClass =
-  "rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
+  "rounded-md border border-border bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
 
 function getTomorrow() {
   const d = new Date();
@@ -52,7 +52,7 @@ export default function RouteCreateForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[var(--radius-lg)] p-5 mb-6 grid grid-cols-2 gap-4 shadow-[var(--shadow-sm)]"
+      className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-5 mb-6 grid grid-cols-2 gap-4 shadow-[var(--shadow-sm)]"
     >
       <AirportInput
         value={origin}
@@ -67,7 +67,7 @@ export default function RouteCreateForm({
         required
       />
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-[var(--text-secondary)]">
+        <label className="text-xs font-medium text-muted">
           Departure date
         </label>
         <input
@@ -80,7 +80,7 @@ export default function RouteCreateForm({
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-[var(--text-secondary)]">
+        <label className="text-xs font-medium text-muted">
           Return date (optional)
         </label>
         <input
@@ -115,27 +115,27 @@ export default function RouteCreateForm({
       </select>
 
       {(estimateLoading || currentMarketPrice != null) && (
-        <div className="col-span-2 bg-cyan-500/10 border border-cyan-500/20 rounded-[var(--radius-md)] px-4 py-3 text-sm">
+        <div className="col-span-2 bg-cyan-500/10 border border-cyan-500/20 rounded-md px-4 py-3 text-sm">
           {estimateLoading ? (
             <span className="text-cyan-400">Fetching current prices...</span>
           ) : currentMarketPrice != null ? (
             <div className="flex items-center gap-4 flex-wrap">
-              <span className="text-[var(--text-secondary)]">
+              <span className="text-muted">
                 Current best price:{" "}
-                <span className="font-bold text-[var(--text-primary)] font-data">
+                <span className="font-bold text-foreground font-data">
                   ${currentMarketPrice.toFixed(0)}
                 </span>
               </span>
               {alertPrice && (
                 <>
-                  <span className="text-[var(--text-tertiary)]">|</span>
-                  <span className="text-[var(--text-secondary)]">
+                  <span className="text-muted-foreground">|</span>
+                  <span className="text-muted">
                     Your alert:{" "}
                     <span className="font-bold font-data">
                       ${parseFloat(alertPrice).toFixed(0)}
                     </span>
                   </span>
-                  <span className="text-[var(--text-tertiary)]">|</span>
+                  <span className="text-muted-foreground">|</span>
                   {savings != null && savings > 0 ? (
                     <span className="text-emerald-400 font-semibold">
                       Potential savings: ${savings.toFixed(0)}

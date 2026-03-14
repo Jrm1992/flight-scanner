@@ -27,12 +27,12 @@ export default function Home() {
             <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-cyan-200 bg-clip-text text-transparent">
               Flight Price Monitor
             </h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-1">
+            <p className="text-sm text-muted mt-1">
               Track flight prices and get alerts when they drop
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-[var(--text-secondary)]">
+            <span className="text-sm text-muted">
               {auth.user?.name}
             </span>
             <Button variant="secondary" size="sm" onClick={auth.logout}>

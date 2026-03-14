@@ -19,7 +19,7 @@ export default function AlertsView() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-5">
+      <h2 className="text-xl font-semibold text-foreground mb-5">
         Alerts
       </h2>
 
@@ -32,7 +32,7 @@ export default function AlertsView() {
       />
 
       {vm.alerts.length === 0 ? (
-        <p className="text-[var(--text-secondary)] text-center py-16">
+        <p className="text-muted text-center py-16">
           No alerts yet.
         </p>
       ) : (

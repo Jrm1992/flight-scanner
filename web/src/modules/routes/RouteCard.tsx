@@ -41,7 +41,7 @@ export default function RouteCard({
               }`}
             />
             <div>
-              <p className="font-semibold text-lg text-[var(--text-primary)] flex items-center gap-2">
+              <p className="font-semibold text-lg text-foreground flex items-center gap-2">
                 {route.origin} &rarr; {route.destination}
                 {priceBelow && (
                   <Badge variant="success" dot>
@@ -49,7 +49,7 @@ export default function RouteCard({
                   </Badge>
                 )}
               </p>
-              <p className="text-sm text-[var(--text-secondary)]">
+              <p className="text-sm text-muted">
                 {formatDate(route.departure_date)}
                 {route.return_date && ` → ${formatDate(route.return_date)}`}
                 {" "}&middot; Alert at ${route.alert_price} &middot; Every{" "}
@@ -60,7 +60,7 @@ export default function RouteCard({
 
           {route.current_price != null && (
             <div className="text-right mr-4">
-              <p className="text-lg font-bold text-[var(--text-primary)] font-data">
+              <p className="text-lg font-bold text-foreground font-data">
                 ${route.current_price.toFixed(0)}
                 {route.price_trend === "down" && (
                   <span className="text-emerald-400 ml-1">&darr;</span>
@@ -73,7 +73,7 @@ export default function RouteCard({
                 )}
               </p>
               {route.last_check_at && (
-                <p className="text-xs text-[var(--text-tertiary)]">
+                <p className="text-xs text-muted-foreground">
                   {new Date(route.last_check_at).toLocaleString("en-US", {
                     month: "short",
                     day: "numeric",

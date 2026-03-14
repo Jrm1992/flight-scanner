@@ -21,16 +21,16 @@ export default function RouteSortBar({
   sortIndicator,
 }: RouteSortBarProps) {
   return (
-    <div className="flex items-center gap-2 mb-4 text-xs text-[var(--text-tertiary)]">
+    <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
       <span className="font-medium">Sort by:</span>
       {sortOptions.map(([key, label]) => (
         <button
           key={key}
           onClick={() => onSort(key)}
-          className={`px-2.5 py-1 rounded-[var(--radius-md)] transition-colors duration-[var(--transition-fast)] ${
+          className={`px-2.5 py-1 rounded-md transition-colors duration-[var(--transition-fast)] ${
             sortKey === key
               ? "bg-cyan-500/15 text-cyan-400 font-medium"
-              : "hover:bg-white/5 text-[var(--text-secondary)]"
+              : "hover:bg-white/5 text-muted"
           }`}
         >
           {label}

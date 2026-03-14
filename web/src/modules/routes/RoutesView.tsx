@@ -35,7 +35,7 @@ export default function RoutesView({
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+        <h2 className="text-xl font-semibold text-foreground">
           Monitored Routes
         </h2>
         <Button
@@ -72,7 +72,7 @@ export default function RoutesView({
       )}
 
       {vm.routes.length === 0 ? (
-        <p className="text-[var(--text-secondary)] text-center py-16">
+        <p className="text-muted text-center py-16">
           No routes being monitored. Add one to get started.
         </p>
       ) : (

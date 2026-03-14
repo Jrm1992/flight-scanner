@@ -25,7 +25,7 @@ function Card({ variant = "default", children, className = "" }: CardProps) {
   return (
     <CardContext.Provider value={{ variant }}>
       <div
-        className={`rounded-[var(--radius-lg)] border shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-white/15 transition-all duration-[var(--transition-base)] ${variantStyles[variant]} ${className}`}
+        className={`rounded-lg border shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:border-white/15 transition-all duration-[var(--transition-base)] ${variantStyles[variant]} ${className}`}
       >
         {children}
       </div>

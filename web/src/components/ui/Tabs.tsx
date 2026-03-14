@@ -40,7 +40,7 @@ function TabsList({
 }) {
   return (
     <div
-      className={`inline-flex items-center gap-1 rounded-[var(--radius-lg)] bg-white/5 border border-white/10 p-1 ${className}`}
+      className={`inline-flex items-center gap-1 rounded-lg bg-white/5 border border-white/10 p-1 ${className}`}
       role="tablist"
     >
       {children}
@@ -65,16 +65,16 @@ function Tab({
       role="tab"
       aria-selected={isActive}
       onClick={() => ctx.onValueChange(value)}
-      className={`relative px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-colors duration-[var(--transition-fast)] ${
+      className={`relative px-4 py-2 text-sm font-medium rounded-md transition-colors duration-[var(--transition-fast)] ${
         isActive
           ? "text-cyan-400"
-          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          : "text-muted hover:text-foreground"
       } ${className}`}
     >
       {isActive && (
         <motion.div
           layoutId="activeTab"
-          className="absolute inset-0 rounded-[var(--radius-md)] bg-cyan-500/15 shadow-[0_0_10px_rgba(6,182,212,0.1)]"
+          className="absolute inset-0 rounded-md bg-cyan-500/15 shadow-[0_0_10px_rgba(6,182,212,0.1)]"
           transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
         />
       )}

@@ -4,9 +4,9 @@ const variantStyles = {
   primary:
     "bg-gradient-to-r from-cyan-500 to-cyan-600 text-white hover:from-cyan-400 hover:to-cyan-500 hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] focus-visible:ring-cyan-500",
   secondary:
-    "bg-white/5 text-[var(--text-secondary)] border border-[var(--border-default)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)] hover:bg-white/10 focus-visible:ring-cyan-500",
+    "bg-white/5 text-muted border border-border hover:border-[var(--border-hover)] hover:text-foreground hover:bg-white/10 focus-visible:ring-cyan-500",
   ghost:
-    "text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]",
+    "text-muted hover:bg-white/5 hover:text-foreground",
   danger:
     "text-red-400 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40 focus-visible:ring-red-500",
   success:
@@ -36,7 +36,7 @@ export default function Button({
   return (
     <button
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-medium transition-all duration-[var(--transition-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0e1a] disabled:opacity-50 disabled:pointer-events-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-[var(--transition-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0e1a] disabled:opacity-50 disabled:pointer-events-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       {...props}
     >
       {loading && <Spinner size="sm" />}

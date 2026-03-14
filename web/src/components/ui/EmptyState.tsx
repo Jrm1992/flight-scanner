@@ -16,9 +16,9 @@ export default function EmptyState({
       {icon && (
         <div className="mb-4 text-cyan-500/40">{icon}</div>
       )}
-      <p className="text-[var(--text-secondary)] font-medium">{title}</p>
+      <p className="text-muted font-medium">{title}</p>
       {description && (
-        <p className="mt-1 text-sm text-[var(--text-tertiary)]">
+        <p className="mt-1 text-sm text-muted-foreground">
           {description}
         </p>
       )}

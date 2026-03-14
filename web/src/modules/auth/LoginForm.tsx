@@ -40,7 +40,7 @@ export default function LoginForm({ onLogin, onSwitchToRegister }: Props) {
         Sign In
       </Button>
 
-      <p className="text-center text-sm text-[var(--text-secondary)]">
+      <p className="text-center text-sm text-muted">
         Don&apos;t have an account?{" "}
         <button
           type="button"
