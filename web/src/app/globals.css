@@ -58,6 +58,8 @@
 @theme inline {
   --color-background: var(--surface-primary);
   --color-foreground: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-muted-foreground: var(--text-tertiary);
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-500: var(--brand-500);
