@@ -6,7 +6,7 @@ import { useAppViewModel } from "@/modules/app/viewmodel";
 import Search from "@/modules/search";
 import Routes from "@/modules/routes";
 import HistoryView from "@/modules/history/HistoryView";
-import AlertsView from "@/modules/alerts/AlertsView";
+import Alerts from "@/modules/alerts";
 import Tabs from "@/components/ui/Tabs";
 import Button from "@/components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -92,7 +92,7 @@ export default function Home() {
                   onMonitorRequestHandled={vm.clearMonitorRequest}
                 />
               )}
-              {vm.tab === "alerts" && <AlertsView />}
+              {vm.tab === "alerts" && <Alerts />}
             </motion.div>
           )}
         </AnimatePresence>
