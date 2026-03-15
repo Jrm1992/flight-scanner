@@ -5,7 +5,7 @@ import AuthView from "@/modules/auth/AuthView";
 import { useAppViewModel } from "@/modules/app/viewmodel";
 import Search from "@/modules/search";
 import Routes from "@/modules/routes";
-import HistoryView from "@/modules/history/HistoryView";
+import History from "@/modules/history";
 import Alerts from "@/modules/alerts";
 import Tabs from "@/components/ui/Tabs";
 import Button from "@/components/ui/Button";
@@ -69,7 +69,7 @@ export default function Home() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <HistoryView
+              <History
                 route={vm.chartRoute}
                 onClose={() => vm.setChartRoute(null)}
               />
