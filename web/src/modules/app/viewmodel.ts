@@ -1,13 +1,9 @@
 import { useState } from "react";
 import type { Route } from "@/lib/types";
+import type { MonitorRequest } from "@/modules/routes/model";
 
 export type Tab = "search" | "routes" | "alerts";
-
-export interface MonitorRequest {
-  origin: string;
-  destination: string;
-  suggestedPrice: number;
-}
+export type { MonitorRequest };
 
 export function useAppViewModel() {
   const [tab, setTab] = useState<Tab>("routes");

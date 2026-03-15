@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   getRoutes,
   createRoute,
@@ -6,13 +6,46 @@ import {
   deleteRoute,
   pauseRoute,
   resumeRoute,
+  searchFlights,
 } from "@/lib/api";
 import type { Route, CreateRouteRequest, UpdateRouteRequest } from "@/lib/types";
 
-export function useRoutesModel() {
+export type SortKey = "origin" | "destination" | "current_price" | "alert_price" | "status";
+export type SortDir = "asc" | "desc";
+
+export interface MonitorRequest {
+  origin: string;
+  destination: string;
+  suggestedPrice: number;
+}
+
+export function useRoutesModel(monitorRequest?: MonitorRequest | null, onMonitorRequestHandled?: () => void) {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Sort
+  const [sortKey, setSortKey] = useState<SortKey>("status");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // Create form
+  const [showForm, setShowForm] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [alertPrice, setAlertPrice] = useState("");
+  const [frequency, setFrequency] = useState("60");
+
+  // Savings estimate
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [currentMarketPrice, setCurrentMarketPrice] = useState<number | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Edit
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editAlertPrice, setEditAlertPrice] = useState("");
+  const [editFrequency, setEditFrequency] = useState("");
 
   const loadRoutes = useCallback(async () => {
     try {
@@ -30,45 +63,193 @@ export function useRoutesModel() {
     loadRoutes();
   }, [loadRoutes]);
 
-  const create = useCallback(
-    async (req: CreateRouteRequest) => {
-      await createRoute(req);
-      await loadRoutes();
-    },
-    [loadRoutes]
-  );
+  // Handle monitor request from search
+  useEffect(() => {
+    if (monitorRequest) {
+      setOrigin(monitorRequest.origin);
+      setDestination(monitorRequest.destination);
+      setAlertPrice(String(Math.floor(monitorRequest.suggestedPrice)));
+      setShowForm(true);
+      onMonitorRequestHandled?.();
+    }
+  }, [monitorRequest, onMonitorRequestHandled]);
 
-  const update = useCallback(
-    async (id: string, req: UpdateRouteRequest) => {
-      await updateRoute(id, req);
-      await loadRoutes();
-    },
-    [loadRoutes]
-  );
+  // Fetch savings estimate
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setCurrentMarketPrice(null);
 
-  const remove = useCallback(
-    async (id: string) => {
+    if (origin.length === 3 && destination.length === 3) {
+      debounceRef.current = setTimeout(async () => {
+        setEstimateLoading(true);
+        try {
+          const data = await searchFlights(origin, destination);
+          if (data.results.length > 0) {
+            setCurrentMarketPrice(Math.min(...data.results.map((r) => r.price)));
+          }
+        } catch {
+          // silently fail
+        } finally {
+          setEstimateLoading(false);
+        }
+      }, 800);
+    }
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [origin, destination]);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const sortedRoutes = [...routes].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "origin":
+        return dir * a.origin.localeCompare(b.origin);
+      case "destination":
+        return dir * a.destination.localeCompare(b.destination);
+      case "current_price":
+        return dir * ((a.current_price ?? Infinity) - (b.current_price ?? Infinity));
+      case "alert_price":
+        return dir * (a.alert_price - b.alert_price);
+      case "status":
+        return dir * a.status.localeCompare(b.status);
+      default:
+        return 0;
+    }
+  });
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    try {
+      await createRoute({
+        origin,
+        destination,
+        departure_date: departureDate,
+        return_date: returnDate || undefined,
+        alert_price: parseFloat(alertPrice),
+        check_frequency_minutes: parseInt(frequency),
+      });
+      await loadRoutes();
+      setShowForm(false);
+      setOrigin("");
+      setDestination("");
+      setDepartureDate("");
+      setReturnDate("");
+      setAlertPrice("");
+      setFrequency("60");
+      setCurrentMarketPrice(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create route");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this route?")) return;
+    try {
       await deleteRoute(id);
       await loadRoutes();
-    },
-    [loadRoutes]
-  );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
+    }
+  }
 
-  const pause = useCallback(
-    async (id: string) => {
-      await pauseRoute(id);
+  async function handleToggle(route: Route) {
+    try {
+      if (route.status === "active") {
+        await pauseRoute(route.id);
+      } else {
+        await resumeRoute(route.id);
+      }
       await loadRoutes();
-    },
-    [loadRoutes]
-  );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to toggle");
+    }
+  }
 
-  const resume = useCallback(
-    async (id: string) => {
-      await resumeRoute(id);
+  function startEdit(route: Route) {
+    setEditingId(route.id);
+    setEditAlertPrice(String(route.alert_price));
+    setEditFrequency(String(route.check_frequency_minutes));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingId) return;
+    setError("");
+    try {
+      await updateRoute(editingId, {
+        alert_price: parseFloat(editAlertPrice),
+        check_frequency_minutes: parseInt(editFrequency),
+      });
       await loadRoutes();
-    },
-    [loadRoutes]
-  );
+      setEditingId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update route");
+    }
+  }
 
-  return { routes, loading, error, setError, loadRoutes, create, update, remove, pause, resume };
+  const savings =
+    currentMarketPrice != null && alertPrice
+      ? currentMarketPrice - parseFloat(alertPrice)
+      : null;
+
+  function sortIndicator(key: SortKey): string {
+    return sortKey === key ? (sortDir === "asc" ? " \u2191" : " \u2193") : "";
+  }
+
+  return {
+    routes: sortedRoutes,
+    loading,
+    error,
+    // Sort
+    sortKey,
+    sortDir,
+    handleSort,
+    sortIndicator,
+    // Create form
+    showForm,
+    setShowForm,
+    origin,
+    setOrigin,
+    destination,
+    setDestination,
+    departureDate,
+    setDepartureDate,
+    returnDate,
+    setReturnDate,
+    alertPrice,
+    setAlertPrice,
+    frequency,
+    setFrequency,
+    estimateLoading,
+    currentMarketPrice,
+    savings,
+    handleCreate,
+    // Edit
+    editingId,
+    editAlertPrice,
+    setEditAlertPrice,
+    editFrequency,
+    setEditFrequency,
+    startEdit,
+    cancelEdit,
+    handleEditSave,
+    // Actions
+    handleDelete,
+    handleToggle,
+  };
 }

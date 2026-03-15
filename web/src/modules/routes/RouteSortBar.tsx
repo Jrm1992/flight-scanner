@@ -1,4 +1,4 @@
-import type { SortKey } from "./viewmodel";
+import type { SortKey } from "./model";
 
 interface RouteSortBarProps {
   sortKey: SortKey;

@@ -4,7 +4,7 @@ import { useAuth } from "@/modules/auth/AuthContext";
 import AuthView from "@/modules/auth/AuthView";
 import { useAppViewModel } from "@/modules/app/viewmodel";
 import Search from "@/modules/search";
-import RoutesView from "@/modules/routes/RoutesView";
+import Routes from "@/modules/routes";
 import HistoryView from "@/modules/history/HistoryView";
 import AlertsView from "@/modules/alerts/AlertsView";
 import Tabs from "@/components/ui/Tabs";
@@ -86,7 +86,7 @@ export default function Home() {
                 <Search onMonitor={vm.handleMonitor} />
               )}
               {vm.tab === "routes" && (
-                <RoutesView
+                <Routes
                   onViewHistory={(r) => vm.setChartRoute(r)}
                   monitorRequest={vm.monitorRequest}
                   onMonitorRequestHandled={vm.clearMonitorRequest}
