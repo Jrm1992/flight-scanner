@@ -6,13 +6,17 @@ export function useSearchModel() {
   const [results, setResults] = useState<FlightResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [destination, setDestination] = useState("");
+  const [date, setDate] = useState("");
 
-  const search = useCallback(
-    async (origin: string, destination: string, date?: string) => {
+  const handleSearch = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
       setError("");
       setLoading(true);
       try {
-        const data = await searchFlights(origin, destination, date);
+        const data = await searchFlights(origin, destination, date || undefined);
         setResults(data.results);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Search failed");
@@ -21,8 +25,19 @@ export function useSearchModel() {
         setLoading(false);
       }
     },
-    []
+    [origin, destination, date]
   );
 
-  return { results, loading, error, search };
+  return {
+    results,
+    loading,
+    error,
+    origin,
+    setOrigin,
+    destination,
+    setDestination,
+    date,
+    setDate,
+    handleSearch,
+  };
 }

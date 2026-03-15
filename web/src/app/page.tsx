@@ -3,7 +3,7 @@
 import { useAuth } from "@/modules/auth/AuthContext";
 import AuthView from "@/modules/auth/AuthView";
 import { useAppViewModel } from "@/modules/app/viewmodel";
-import SearchView from "@/modules/search/SearchView";
+import Search from "@/modules/search";
 import RoutesView from "@/modules/routes/RoutesView";
 import HistoryView from "@/modules/history/HistoryView";
 import AlertsView from "@/modules/alerts/AlertsView";
@@ -83,7 +83,7 @@ export default function Home() {
               transition={{ duration: 0.2 }}
             >
               {vm.tab === "search" && (
-                <SearchView onMonitor={vm.handleMonitor} />
+                <Search onMonitor={vm.handleMonitor} />
               )}
               {vm.tab === "routes" && (
                 <RoutesView
