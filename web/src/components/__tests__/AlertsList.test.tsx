@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
-import AlertsList from "@/modules/alerts/AlertsView";
+import AlertsList from "@/modules/alerts";
 
 vi.mock("@/lib/api", () => ({
   getAlerts: vi.fn(),
