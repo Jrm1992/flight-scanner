@@ -1,51 +1,64 @@
-"use client";
-
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import { useRegisterViewModel } from "./viewmodel";
-import type { RegisterRequest } from "@/lib/types";
 
-interface Props {
-  onRegister: (req: RegisterRequest) => Promise<void>;
+interface RegisterFormProps {
+  name: string;
+  onNameChange: (v: string) => void;
+  email: string;
+  onEmailChange: (v: string) => void;
+  password: string;
+  onPasswordChange: (v: string) => void;
+  loading: boolean;
+  error: string;
+  onSubmit: (e: React.FormEvent) => void;
   onSwitchToLogin: () => void;
 }
 
-export default function RegisterForm({ onRegister, onSwitchToLogin }: Props) {
-  const vm = useRegisterViewModel(onRegister);
-
+export default function RegisterForm({
+  name,
+  onNameChange,
+  email,
+  onEmailChange,
+  password,
+  onPasswordChange,
+  loading,
+  error,
+  onSubmit,
+  onSwitchToLogin,
+}: RegisterFormProps) {
   return (
-    <form onSubmit={vm.handleSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       <Input
         label="Name"
         type="text"
-        value={vm.name}
-        onChange={(e) => vm.setName(e.target.value)}
+        value={name}
+        onChange={(e) => onNameChange(e.target.value)}
         placeholder="Your name"
         required
       />
       <Input
         label="Email"
         type="email"
-        value={vm.email}
-        onChange={(e) => vm.setEmail(e.target.value)}
+        value={email}
+        onChange={(e) => onEmailChange(e.target.value)}
         placeholder="you@example.com"
         required
       />
       <Input
         label="Password"
         type="password"
-        value={vm.password}
-        onChange={(e) => vm.setPassword(e.target.value)}
+        value={password}
+        onChange={(e) => onPasswordChange(e.target.value)}
         placeholder="At least 8 characters"
         minLength={8}
         required
       />
 
-      {vm.error && (
-        <p className="text-sm text-[var(--color-danger)]">{vm.error}</p>
+      {error && (
+        <p className="text-sm text-[var(--color-danger)]">{error}</p>
       )}
 
-      <Button type="submit" loading={vm.loading} className="w-full">
+      <Button type="submit" loading={loading} className="w-full">
         Create Account
       </Button>
 

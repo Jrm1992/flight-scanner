@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/modules/auth/AuthContext";
-import AuthView from "@/modules/auth/AuthView";
+import Auth from "@/modules/auth";
 import { useAppViewModel } from "@/modules/app/viewmodel";
 import Search from "@/modules/search";
 import Routes from "@/modules/routes";
@@ -16,7 +16,7 @@ export default function Home() {
   const vm = useAppViewModel();
 
   if (!auth.isAuthenticated) {
-    return <AuthView onLogin={auth.login} onRegister={auth.register} />;
+    return <Auth onLogin={auth.login} onRegister={auth.register} />;
   }
 
   return (

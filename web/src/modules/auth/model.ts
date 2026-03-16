@@ -14,21 +14,17 @@ export function useAuthModel() {
 
   const isAuthenticated = !!user;
 
-  // Initialize: load token from localStorage
   useEffect(() => {
     const token = loadAuthToken();
     if (token) {
-      // Decode user from JWT payload (base64)
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         const exp = payload.exp * 1000;
         if (Date.now() < exp) {
-          // Token is still valid, restore user from localStorage
           const savedUser = localStorage.getItem("user");
           if (savedUser) {
             setUser(JSON.parse(savedUser));
           } else {
-            // Token exists but no user data — force logout
             setAuthToken(null);
           }
         } else {
@@ -41,7 +37,6 @@ export function useAuthModel() {
     setLoading(false);
   }, []);
 
-  // Listen for auth:logout events (triggered by 401 responses)
   useEffect(() => {
     function handleLogout() {
       setUser(null);
@@ -86,4 +81,74 @@ export function useAuthModel() {
   }, []);
 
   return { user, isAuthenticated, loading, error, login, register: registerUser, logout };
+}
+
+export function useAuthFormModel(
+  onLogin: (req: LoginRequest) => Promise<void>,
+  onRegister: (req: RegisterRequest) => Promise<void>,
+) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+
+  // Login form
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+
+  // Register form
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState("");
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      await onLogin({ email: loginEmail, password: loginPassword });
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setRegisterError("");
+    setRegisterLoading(true);
+    try {
+      await onRegister({ name: registerName, email: registerEmail, password: registerPassword });
+    } catch (err) {
+      setRegisterError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setRegisterLoading(false);
+    }
+  }
+
+  return {
+    mode,
+    switchToLogin: () => setMode("login"),
+    switchToRegister: () => setMode("register"),
+    // Login
+    loginEmail,
+    setLoginEmail,
+    loginPassword,
+    setLoginPassword,
+    loginLoading,
+    loginError,
+    handleLogin,
+    // Register
+    registerName,
+    setRegisterName,
+    registerEmail,
+    setRegisterEmail,
+    registerPassword,
+    setRegisterPassword,
+    registerLoading,
+    registerError,
+    handleRegister,
+  };
 }
