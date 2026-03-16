@@ -5,7 +5,7 @@ import type { MonitorRequest } from "@/modules/routes/model";
 export type Tab = "search" | "routes" | "alerts";
 export type { MonitorRequest };
 
-export function useAppViewModel() {
+export function useAppModel() {
   const [tab, setTab] = useState<Tab>("routes");
   const [chartRoute, setChartRoute] = useState<Route | null>(null);
   const [monitorRequest, setMonitorRequest] = useState<MonitorRequest | null>(null);
