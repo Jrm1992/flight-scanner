@@ -8,7 +8,7 @@ import Tabs from "@/components/ui/Tabs";
 import Button from "@/components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 
-interface AppViewProps {
+interface DashboardViewProps {
   userName: string;
   onLogout: () => void;
   tab: Tab;
@@ -21,7 +21,7 @@ interface AppViewProps {
   onMonitorRequestHandled: () => void;
 }
 
-export default function AppView({
+export default function DashboardView({
   userName,
   onLogout,
   tab,
@@ -32,7 +32,7 @@ export default function AppView({
   onMonitor,
   monitorRequest,
   onMonitorRequestHandled,
-}: AppViewProps) {
+}: DashboardViewProps) {
   return (
     <div className="min-h-screen">
       <header className="bg-gradient-to-r from-[#0a0e1a] to-[#0f1629] border-b border-white/10">

@@ -2,19 +2,19 @@
 
 import { useAuth } from "@/modules/auth/AuthContext";
 import Auth from "@/modules/auth";
-import { useAppModel } from "@/modules/app/model";
-import AppView from "@/modules/app/view";
+import { useDashboardModel } from "@/modules/dashboard/model";
+import DashboardView from "@/modules/dashboard/view";
 
 export default function Home() {
   const auth = useAuth();
-  const model = useAppModel();
+  const model = useDashboardModel();
 
   if (!auth.isAuthenticated) {
     return <Auth onLogin={auth.login} onRegister={auth.register} />;
   }
 
   return (
-    <AppView
+    <DashboardView
       userName={auth.user?.name ?? ""}
       onLogout={auth.logout}
       tab={model.tab}
