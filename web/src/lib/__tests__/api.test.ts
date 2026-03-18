@@ -11,6 +11,10 @@ import {
   markAlertRead,
   getHistory,
   getExportUrl,
+  setAuthToken,
+  loadAuthToken,
+  login,
+  register,
 } from "../api";
 
 const mockFetch = vi.fn();
@@ -26,6 +30,8 @@ function jsonResponse(data: unknown, status = 200) {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  setAuthToken(null);
+  localStorage.clear();
 });
 
 describe("getRoutes", () => {
@@ -189,5 +195,98 @@ describe("error handling", () => {
       })
     );
     await expect(getRoutes()).rejects.toThrow("server error");
+  });
+
+  it("handles 401 by clearing token and dispatching logout event", async () => {
+    setAuthToken("some-token");
+    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({}),
+      })
+    );
+
+    await expect(getRoutes()).rejects.toThrow("Session expired");
+    expect(localStorage.getItem("token")).toBeNull();
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "auth:logout" }));
+    dispatchSpy.mockRestore();
+  });
+
+  it("handles non-ok response without error body", async () => {
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: false,
+        status: 503,
+        json: () => Promise.reject(new Error("invalid json")),
+      })
+    );
+    await expect(getRoutes()).rejects.toThrow("Request failed: 503");
+  });
+});
+
+describe("token management", () => {
+  it("setAuthToken stores token in localStorage", () => {
+    setAuthToken("test-token");
+    expect(localStorage.getItem("token")).toBe("test-token");
+  });
+
+  it("setAuthToken(null) removes token from localStorage", () => {
+    setAuthToken("test-token");
+    setAuthToken(null);
+    expect(localStorage.getItem("token")).toBeNull();
+  });
+
+  it("loadAuthToken reads from localStorage", () => {
+    localStorage.setItem("token", "stored-token");
+    const token = loadAuthToken();
+    expect(token).toBe("stored-token");
+  });
+
+  it("sends Authorization header when token is set", async () => {
+    setAuthToken("my-jwt");
+    mockFetch.mockReturnValueOnce(jsonResponse({ routes: [] }));
+    await getRoutes();
+
+    const [, opts] = mockFetch.mock.calls[0];
+    expect(opts.headers["Authorization"]).toBe("Bearer my-jwt");
+  });
+
+  it("does not send Authorization header when no token", async () => {
+    mockFetch.mockReturnValueOnce(jsonResponse({ routes: [] }));
+    await getRoutes();
+
+    const [, opts] = mockFetch.mock.calls[0];
+    expect(opts.headers["Authorization"]).toBeUndefined();
+  });
+});
+
+describe("auth endpoints", () => {
+  it("login sends POST to /api/auth/login", async () => {
+    mockFetch.mockReturnValueOnce(
+      jsonResponse({ token: "jwt", user: { id: "u-1", name: "Test", email: "t@t.com" } })
+    );
+    const res = await login({ email: "t@t.com", password: "pass" });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/auth/login");
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body)).toMatchObject({ email: "t@t.com", password: "pass" });
+    expect(res.token).toBe("jwt");
+  });
+
+  it("register sends POST to /api/auth/register", async () => {
+    mockFetch.mockReturnValueOnce(
+      jsonResponse({ token: "jwt", user: { id: "u-1", name: "Test", email: "t@t.com" } })
+    );
+    const res = await register({ name: "Test", email: "t@t.com", password: "pass" });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain("/api/auth/register");
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body)).toMatchObject({ name: "Test" });
+    expect(res.user.name).toBe("Test");
   });
 });
