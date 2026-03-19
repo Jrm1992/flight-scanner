@@ -434,3 +434,363 @@ func TestWorkerFetchParams(t *testing.T) {
 		t.Errorf("expected ~30 days range, got %v", diff)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Start() tests
+// ---------------------------------------------------------------------------
+
+func TestStart_Success(t *testing.T) {
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{
+		routes: []models.Route{
+			makeRoute("r1", "GIG", "SCL", 500),
+			makeRoute("r2", "EZE", "MIA", 400),
+		},
+	}
+
+	mon := New(rs, ph, as, fs)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := mon.Start(ctx)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if mon.RunningCount() != 2 {
+		t.Errorf("expected RunningCount=2, got %d", mon.RunningCount())
+	}
+	mon.StopAll()
+}
+
+func TestStart_ListActiveError(t *testing.T) {
+	fs := &mockFlightSearcher{}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{err: fmt.Errorf("db connection failed")}
+
+	mon := New(rs, ph, as, fs)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := mon.Start(ctx)
+	if err == nil {
+		t.Fatal("expected error from Start when ListActive fails")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Worker check() error path tests
+// ---------------------------------------------------------------------------
+
+func TestWorkerCheck_FetchPricesError(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{err: fmt.Errorf("api timeout")}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// Should not insert anything when fetch fails
+	ph.mu.Lock()
+	insertCount := len(ph.inserted)
+	ph.mu.Unlock()
+	if insertCount != 0 {
+		t.Errorf("expected no price inserts on fetch error, got %d", insertCount)
+	}
+}
+
+func TestWorkerCheck_InsertError(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 400, Airline: "LATAM"},
+		},
+	}
+	ph := &mockPriceHistoryStore{err: fmt.Errorf("db write failed")}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// Insert was attempted but failed; no alert should be created
+	as.mu.Lock()
+	alertCount := len(as.created)
+	as.mu.Unlock()
+	if alertCount != 0 {
+		t.Errorf("expected no alert created on insert error, got %d", alertCount)
+	}
+}
+
+func TestWorkerCheck_PriceAboveThreshold_NoAlert(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 600, Airline: "LATAM"},
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// Price is above threshold, no alert should be created
+	as.mu.Lock()
+	alertCount := len(as.created)
+	as.mu.Unlock()
+	if alertCount != 0 {
+		t.Errorf("expected no alert when price above threshold, got %d", alertCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// tryCreateAlert error path tests
+// ---------------------------------------------------------------------------
+
+func TestWorkerTryCreateAlert_HasAlertTodayError(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 400, Airline: "LATAM"},
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{hasAlertTodayErr: fmt.Errorf("db read error")}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// HasAlertToday returned error, so no alert should be created
+	as.mu.Lock()
+	alertCount := len(as.created)
+	as.mu.Unlock()
+	if alertCount != 0 {
+		t.Errorf("expected no alert created on HasAlertToday error, got %d", alertCount)
+	}
+}
+
+func TestWorkerTryCreateAlert_CreateError(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 400, Airline: "LATAM"},
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{
+		hasAlertToday: false,
+		createErr:     fmt.Errorf("db write error"),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// Create was called but returned an error
+	as.mu.Lock()
+	alertCount := len(as.created)
+	as.mu.Unlock()
+	if alertCount != 1 {
+		t.Errorf("expected 1 alert create attempt, got %d", alertCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// fetchPrices edge case tests
+// ---------------------------------------------------------------------------
+
+func TestWorkerFetchPrices_PastDepartureDate(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	route.DepartureDate = "2020-01-01" // past date
+
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 400, Airline: "LATAM"},
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// fetchPrices returns nil when departure date has passed, so no insert
+	ph.mu.Lock()
+	insertCount := len(ph.inserted)
+	ph.mu.Unlock()
+	if insertCount != 0 {
+		t.Errorf("expected no price inserts for past departure, got %d", insertCount)
+	}
+
+	// Search should not have been called since departure date is past
+	fs.mu.Lock()
+	callCount := fs.called
+	fs.mu.Unlock()
+	if callCount != 0 {
+		t.Errorf("expected Search not called for past departure, got %d calls", callCount)
+	}
+}
+
+func TestWorkerFetchPrices_WithReturnDate(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	retDate := time.Now().AddDate(0, 2, 0).Format("2006-01-02")
+	route.ReturnDate = &retDate
+
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 450, Airline: "LATAM"},
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// Should have called Search and inserted
+	fs.mu.Lock()
+	callCount := fs.called
+	fs.mu.Unlock()
+	if callCount != 1 {
+		t.Errorf("expected Search called once, got %d", callCount)
+	}
+
+	ph.mu.Lock()
+	insertCount := len(ph.inserted)
+	ph.mu.Unlock()
+	if insertCount != 1 {
+		t.Errorf("expected 1 price insert, got %d", insertCount)
+	}
+}
+
+func TestWorkerFetchPrices_InvalidDepartureDate(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	route.DepartureDate = "bad-date"
+
+	fs := &mockFlightSearcher{}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	// fetchPrices should return error due to bad date, no insert
+	ph.mu.Lock()
+	insertCount := len(ph.inserted)
+	ph.mu.Unlock()
+	if insertCount != 0 {
+		t.Errorf("expected no price inserts for bad departure date, got %d", insertCount)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// run() loop tests
+// ---------------------------------------------------------------------------
+
+func TestWorkerRun_ContextCancellation(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	route.CheckFrequencyMinutes = 1 // 1 minute
+
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	w := newWorker(ctx, route, fs, ph, as)
+
+	done := make(chan struct{})
+	go func() {
+		w.run()
+		close(done)
+	}()
+
+	// Give the goroutine time to start and do its first check
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+		// run() exited as expected
+	case <-time.After(2 * time.Second):
+		t.Fatal("worker.run() did not exit after context cancellation")
+	}
+}
+
+func TestWorkerRun_PanicRecovery(t *testing.T) {
+	// Use a nil flightClient to trigger a panic inside check()
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	route.CheckFrequencyMinutes = 1
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// A worker with nil dependencies will panic when check() is called
+	w := &worker{
+		route:        route,
+		flightClient: nil, // will cause nil pointer dereference in check -> fetchPrices
+		priceHistory: nil,
+		alerts:       nil,
+		ctx:          ctx,
+		cancel:       cancel,
+	}
+
+	done := make(chan struct{})
+	go func() {
+		w.run()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// run() recovered from panic and exited
+	case <-time.After(2 * time.Second):
+		t.Fatal("worker.run() did not recover from panic")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// StopRoute for non-existent route (no-op)
+// ---------------------------------------------------------------------------
+
+func TestStopRoute_NonExistent(t *testing.T) {
+	fs := &mockFlightSearcher{}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{}
+
+	mon, cancel := setupMonitor(fs, ph, as, rs)
+	defer cancel()
+
+	// Should not panic
+	mon.StopRoute("nonexistent")
+
+	if mon.RunningCount() != 0 {
+		t.Errorf("expected RunningCount=0, got %d", mon.RunningCount())
+	}
+}
