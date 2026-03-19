@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -138,5 +139,54 @@ func TestAlertHandler_MarkRead(t *testing.T) {
 				t.Fatalf("expected %d, got %d: %s", tt.wantCode, w.Code, w.Body.String())
 			}
 		})
+	}
+}
+
+func TestAlertHandler_List_Error(t *testing.T) {
+	repo := &mockAlertRepo{err: errors.New("db error")}
+	h := NewAlertHandler(repo)
+	req := withUserCtx(httptest.NewRequest(http.MethodGet, "/api/alerts", nil))
+	w := httptest.NewRecorder()
+	h.List(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAlertHandler_List_ByRouteError(t *testing.T) {
+	repo := &mockAlertRepo{err: errors.New("db error")}
+	h := NewAlertHandler(repo)
+	req := withUserCtx(httptest.NewRequest(http.MethodGet, "/api/alerts?route_id=r-1", nil))
+	w := httptest.NewRecorder()
+	h.List(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAlertHandler_MarkRead_MissingID(t *testing.T) {
+	h := NewAlertHandler(&mockAlertRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/alerts//mark-read", nil))
+	// Do not set path value
+	w := httptest.NewRecorder()
+	h.MarkRead(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAlertHandler_MarkRead_InternalError(t *testing.T) {
+	repo := &mockAlertRepo{err: errors.New("db error")}
+	h := NewAlertHandler(repo)
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/alerts/a-1/mark-read", nil))
+	req.SetPathValue("id", "a-1")
+	w := httptest.NewRecorder()
+	h.MarkRead(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
 	}
 }

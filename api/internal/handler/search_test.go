@@ -81,3 +81,86 @@ func TestSearchHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchHandler_InvalidDate(t *testing.T) {
+	h := NewSearchHandler(&mockFlightSearcher{})
+	payload := `{"origin":"GIG","destination":"SCL","date":"not-a-date"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/search/flights", bytes.NewBufferString(payload))
+	w := httptest.NewRecorder()
+	h.Search(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSearchHandler_InvalidReturnDate(t *testing.T) {
+	h := NewSearchHandler(&mockFlightSearcher{})
+	payload := `{"origin":"GIG","destination":"SCL","date":"2026-05-01","return_date":"bad-date"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/search/flights", bytes.NewBufferString(payload))
+	w := httptest.NewRecorder()
+	h.Search(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSearchHandler_WithReturnDate(t *testing.T) {
+	mock := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 500, Airline: "LATAM", DepartureCode: "GIG", ArrivalCode: "SCL"},
+		},
+	}
+	h := NewSearchHandler(mock)
+	payload := `{"origin":"GIG","destination":"SCL","date":"2026-05-01","return_date":"2026-05-15"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/search/flights", bytes.NewBufferString(payload))
+	w := httptest.NewRecorder()
+	h.Search(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSearchHandler_DefaultCurrency(t *testing.T) {
+	mock := &mockFlightSearcher{
+		results: []flightapi.FlightResult{},
+	}
+	h := NewSearchHandler(mock)
+	// No currency specified — should default to USD
+	payload := `{"origin":"GIG","destination":"SCL","date":"2026-05-01"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/search/flights", bytes.NewBufferString(payload))
+	w := httptest.NewRecorder()
+	h.Search(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Currency string `json:"currency"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("json unmarshal: %v", err)
+	}
+	if resp.Currency != "USD" {
+		t.Fatalf("expected currency USD, got %q", resp.Currency)
+	}
+}
+
+func TestSearchHandler_NoDate(t *testing.T) {
+	mock := &mockFlightSearcher{
+		results: []flightapi.FlightResult{},
+	}
+	h := NewSearchHandler(mock)
+	// No date — should default to tomorrow
+	payload := `{"origin":"GIG","destination":"SCL"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/search/flights", bytes.NewBufferString(payload))
+	w := httptest.NewRecorder()
+	h.Search(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}

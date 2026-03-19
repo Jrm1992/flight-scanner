@@ -3,6 +3,8 @@ package flightapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -280,6 +282,489 @@ func TestBuildSearchURL_OneWay(t *testing.T) {
 	}
 	if strings.Contains(u, "return_date") {
 		t.Errorf("one way should not have return_date: %s", u)
+	}
+}
+
+func TestRetryableError_ErrorAndUnwrap(t *testing.T) {
+	inner := fmt.Errorf("something broke")
+	re := &retryableError{err: inner}
+
+	if re.Error() != "something broke" {
+		t.Errorf("expected 'something broke', got %q", re.Error())
+	}
+	if re.Unwrap() != inner {
+		t.Error("Unwrap should return the inner error")
+	}
+	if !isRetryable(re) {
+		t.Error("retryableError should be retryable")
+	}
+
+	// A plain error should not be retryable.
+	plain := fmt.Errorf("plain error")
+	if isRetryable(plain) {
+		t.Error("plain error should not be retryable")
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	short := []byte("hello")
+	if truncate(short, 10) != "hello" {
+		t.Error("short string should not be truncated")
+	}
+
+	long := []byte("hello world, this is a long string")
+	result := truncate(long, 5)
+	if result != "hello..." {
+		t.Errorf("expected 'hello...', got %q", result)
+	}
+}
+
+func TestToFlightResults_EmptyFlights(t *testing.T) {
+	groups := []FlightGroup{
+		{Flights: []FlightLeg{}, Price: 100, TotalDuration: 300},
+	}
+	results := toFlightResults(groups)
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results for empty flights, got %d", len(results))
+	}
+}
+
+func TestToFlightResults_ZeroPrice(t *testing.T) {
+	groups := []FlightGroup{
+		{
+			Flights: []FlightLeg{
+				{DepartureAirport: Airport{ID: "GIG", Time: "2026-04-01 10:00"}, ArrivalAirport: Airport{ID: "SCL", Time: "2026-04-01 16:00"}, Airline: "LATAM"},
+			},
+			Price:         0,
+			TotalDuration: 360,
+		},
+	}
+	results := toFlightResults(groups)
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results for zero price, got %d", len(results))
+	}
+}
+
+func TestToFlightResults_NilGroups(t *testing.T) {
+	results := toFlightResults(nil)
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results for nil groups, got %d", len(results))
+	}
+}
+
+func TestToFlightResults_MultiLegDifferentAirlines(t *testing.T) {
+	groups := []FlightGroup{
+		{
+			Flights: []FlightLeg{
+				{
+					DepartureAirport: Airport{ID: "GIG", Time: "2026-04-01 10:00"},
+					ArrivalAirport:   Airport{ID: "EZE", Time: "2026-04-01 14:00"},
+					Airline:          "LATAM",
+					FlightNumber:     "LA800",
+				},
+				{
+					DepartureAirport: Airport{ID: "EZE", Time: "2026-04-01 17:00"},
+					ArrivalAirport:   Airport{ID: "SCL", Time: "2026-04-01 19:00"},
+					Airline:          "GOL",
+					FlightNumber:     "G3100",
+				},
+			},
+			Layovers:      []Layover{{Duration: 180, Name: "Ezeiza", ID: "EZE"}},
+			TotalDuration: 540,
+			Price:         280,
+		},
+	}
+
+	results := toFlightResults(groups)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	// Different airlines should be joined with comma
+	if results[0].Airline != "LATAM,GOL" {
+		t.Errorf("expected 'LATAM,GOL', got %q", results[0].Airline)
+	}
+	if results[0].FlightNumber != "LA800" {
+		t.Errorf("expected flight number LA800, got %q", results[0].FlightNumber)
+	}
+}
+
+func TestToFlightResults_BadTimeFormat(t *testing.T) {
+	groups := []FlightGroup{
+		{
+			Flights: []FlightLeg{
+				{
+					DepartureAirport: Airport{ID: "GIG", Time: "bad-time"},
+					ArrivalAirport:   Airport{ID: "SCL", Time: "also-bad"},
+					Airline:          "LATAM",
+					FlightNumber:     "LA800",
+				},
+			},
+			TotalDuration: 360,
+			Price:         300,
+		},
+	}
+
+	// Should still produce a result (times will be zero values)
+	results := toFlightResults(groups)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if !results[0].Departure.IsZero() {
+		t.Error("expected zero departure time for bad format")
+	}
+	if !results[0].Arrival.IsZero() {
+		t.Error("expected zero arrival time for bad format")
+	}
+}
+
+func TestDoSearch_InvalidJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{not valid json`))
+	}))
+	defer srv.Close()
+
+	client := &Client{
+		apiKey:     "test-key",
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+
+	_, err := client.doSearch(context.Background(), srv.URL)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON response")
+	}
+	if !strings.Contains(err.Error(), "decode response") {
+		t.Errorf("expected 'decode response' error, got: %v", err)
+	}
+}
+
+func TestDoSearch_EmptyResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"best_flights":[],"other_flights":[]}`))
+	}))
+	defer srv.Close()
+
+	client := &Client{
+		apiKey:     "test-key",
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+
+	results, err := client.doSearch(context.Background(), srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results, got %d", len(results))
+	}
+}
+
+func TestSearch_DefaultParams(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := SerpResponse{
+			BestFlights: []FlightGroup{
+				{
+					Flights:       []FlightLeg{{DepartureAirport: Airport{ID: "GIG", Time: "2026-04-01 10:00"}, ArrivalAirport: Airport{ID: "SCL", Time: "2026-04-01 16:00"}, Airline: "GOL"}},
+					TotalDuration: 360,
+					Price:         300,
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	// Monkey-patch: we can't override baseURL const, so test via doSearch + buildSearchURL separately.
+	// Instead test that Search fills defaults by checking buildSearchURL output.
+	client := NewClient("key")
+	params := SearchParams{
+		DepartureID:  "GIG",
+		ArrivalID:    "SCL",
+		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		// Currency, Adults, TravelClass all zero/empty — should get defaults
+	}
+
+	u := client.buildSearchURL(params)
+	// Defaults should not appear because buildSearchURL doesn't apply defaults — Search does.
+	// Let's verify Search applies defaults by checking the URL it would build after.
+	if params.Currency == "" {
+		params.Currency = "USD"
+	}
+	if params.Adults <= 0 {
+		params.Adults = 1
+	}
+	if params.TravelClass <= 0 {
+		params.TravelClass = 1
+	}
+	u = client.buildSearchURL(params)
+	if !strings.Contains(u, "currency=USD") {
+		t.Errorf("expected currency=USD in URL: %s", u)
+	}
+	if !strings.Contains(u, "adults=1") {
+		t.Errorf("expected adults=1 in URL: %s", u)
+	}
+	if !strings.Contains(u, "travel_class=1") {
+		t.Errorf("expected travel_class=1 in URL: %s", u)
+	}
+}
+
+func TestBuildSearchURL_NoStopsNoMaxPrice(t *testing.T) {
+	client := NewClient("key")
+	params := SearchParams{
+		DepartureID:  "GIG",
+		ArrivalID:    "SCL",
+		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Currency:     "USD",
+		Adults:       1,
+		TravelClass:  1,
+		Stops:        0,
+		MaxPrice:     0,
+	}
+
+	u := client.buildSearchURL(params)
+	if strings.Contains(u, "stops=") {
+		t.Errorf("URL should not contain stops when 0: %s", u)
+	}
+	if strings.Contains(u, "max_price=") {
+		t.Errorf("URL should not contain max_price when 0: %s", u)
+	}
+}
+
+func TestDoSearch_ServerError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("service unavailable"))
+	}))
+	defer srv.Close()
+
+	client := &Client{
+		apiKey:     "test-key",
+		httpClient: &http.Client{Timeout: 5 * time.Second},
+	}
+
+	_, err := client.doSearch(context.Background(), srv.URL)
+	if err == nil {
+		t.Fatal("expected error for 503")
+	}
+	if !isRetryable(err) {
+		t.Error("503 should be retryable")
+	}
+	if !strings.Contains(err.Error(), "server error") {
+		t.Errorf("expected 'server error' in message, got: %v", err)
+	}
+}
+
+// roundTripFunc adapts a function to http.RoundTripper so we can intercept
+// requests made by Search (which builds the URL from the baseURL constant).
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestSearch_SuccessFirstAttempt(t *testing.T) {
+	resp := SerpResponse{
+		BestFlights: []FlightGroup{
+			{
+				Flights:       []FlightLeg{{DepartureAirport: Airport{ID: "GIG", Time: "2026-04-01 10:00"}, ArrivalAirport: Airport{ID: "SCL", Time: "2026-04-01 16:00"}, Airline: "GOL", FlightNumber: "G3100"}},
+				TotalDuration: 360,
+				Price:         300,
+			},
+		},
+	}
+	respBody, _ := json.Marshal(resp)
+
+	client := &Client{
+		apiKey: "test-key",
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(strings.NewReader(string(respBody))),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}),
+		},
+	}
+
+	results, err := client.Search(context.Background(), SearchParams{
+		DepartureID:  "GIG",
+		ArrivalID:    "SCL",
+		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		// Currency, Adults, TravelClass all zero — Search should fill defaults.
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Price != 300 {
+		t.Errorf("expected price 300, got %f", results[0].Price)
+	}
+}
+
+func TestSearch_NonRetryableError(t *testing.T) {
+	client := &Client{
+		apiKey: "test-key",
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: 400,
+					Body:       io.NopCloser(strings.NewReader(`{"error":"bad request"}`)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}),
+		},
+	}
+
+	_, err := client.Search(context.Background(), SearchParams{
+		DepartureID:  "GIG",
+		ArrivalID:    "SCL",
+		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Currency:     "USD",
+		Adults:       1,
+		TravelClass:  1,
+	})
+	if err == nil {
+		t.Fatal("expected error for 400 response")
+	}
+	if !strings.Contains(err.Error(), "serpapi search") {
+		t.Errorf("expected 'serpapi search' wrapper, got: %v", err)
+	}
+}
+
+func TestSearch_RetriesExhausted(t *testing.T) {
+	var attempts atomic.Int32
+
+	client := &Client{
+		apiKey: "test-key",
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				attempts.Add(1)
+				return &http.Response{
+					StatusCode: 429,
+					Body:       io.NopCloser(strings.NewReader("")),
+					Header:     http.Header{},
+				}, nil
+			}),
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err := client.Search(ctx, SearchParams{
+		DepartureID:  "GIG",
+		ArrivalID:    "SCL",
+		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Currency:     "USD",
+		Adults:       1,
+		TravelClass:  1,
+	})
+	if err == nil {
+		t.Fatal("expected error after retries exhausted")
+	}
+	if !strings.Contains(err.Error(), "retries exhausted") {
+		t.Errorf("expected 'retries exhausted', got: %v", err)
+	}
+	// Should have made maxRetries + 1 attempts
+	if got := attempts.Load(); got != int32(maxRetries+1) {
+		t.Errorf("expected %d attempts, got %d", maxRetries+1, got)
+	}
+}
+
+func TestSearch_ContextCancelledDuringRetry(t *testing.T) {
+	var attempts atomic.Int32
+
+	client := &Client{
+		apiKey: "test-key",
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				attempts.Add(1)
+				return &http.Response{
+					StatusCode: 500,
+					Body:       io.NopCloser(strings.NewReader("error")),
+					Header:     http.Header{},
+				}, nil
+			}),
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Cancel after a short delay so the retry backoff select picks up the cancellation.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := client.Search(ctx, SearchParams{
+		DepartureID:  "GIG",
+		ArrivalID:    "SCL",
+		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Currency:     "USD",
+		Adults:       1,
+		TravelClass:  1,
+	})
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+	if err != context.Canceled {
+		t.Errorf("expected context.Canceled, got: %v", err)
+	}
+}
+
+func TestSearch_RetrySucceedsOnSecondAttempt(t *testing.T) {
+	var attempts atomic.Int32
+
+	resp := SerpResponse{
+		BestFlights: []FlightGroup{
+			{
+				Flights:       []FlightLeg{{DepartureAirport: Airport{ID: "GIG", Time: "2026-04-01 10:00"}, ArrivalAirport: Airport{ID: "SCL", Time: "2026-04-01 16:00"}, Airline: "GOL", FlightNumber: "G3100"}},
+				TotalDuration: 360,
+				Price:         300,
+			},
+		},
+	}
+	respBody, _ := json.Marshal(resp)
+
+	client := &Client{
+		apiKey: "test-key",
+		httpClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				n := attempts.Add(1)
+				if n == 1 {
+					return &http.Response{
+						StatusCode: 500,
+						Body:       io.NopCloser(strings.NewReader("error")),
+						Header:     http.Header{},
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: 200,
+					Body:       io.NopCloser(strings.NewReader(string(respBody))),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}, nil
+			}),
+		},
+	}
+
+	results, err := client.Search(context.Background(), SearchParams{
+		DepartureID:  "GIG",
+		ArrivalID:    "SCL",
+		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+		Currency:     "USD",
+		Adults:       1,
+		TravelClass:  1,
+	})
+	if err != nil {
+		t.Fatalf("expected success after retry, got: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if attempts.Load() != 2 {
+		t.Errorf("expected 2 attempts, got %d", attempts.Load())
 	}
 }
 

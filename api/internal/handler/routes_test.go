@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"errors"
+
 	"github.com/jose/flight-scanner/internal/middleware"
 	"github.com/jose/flight-scanner/internal/models"
 	"github.com/jose/flight-scanner/internal/repository"
@@ -277,5 +279,301 @@ func TestRouteHandler_PauseResume(t *testing.T) {
 				t.Fatal("expected monitor to be stopped")
 			}
 		})
+	}
+}
+
+func TestRouteHandler_Create_InvalidJSON(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPost, "/api/routes", bytes.NewBufferString(`{bad`)))
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Create_NegativeFrequency(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	payload := `{"origin":"GIG","destination":"SCL","departure_date":"2099-12-01","alert_price":500,"check_frequency_minutes":-1}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPost, "/api/routes", bytes.NewBufferString(payload)))
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Create_PastDepartureDate(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	payload := `{"origin":"GIG","destination":"SCL","departure_date":"2020-01-01","alert_price":500}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPost, "/api/routes", bytes.NewBufferString(payload)))
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Create_InvalidReturnDateFormat(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	ret := "not-a-date"
+	payload := `{"origin":"GIG","destination":"SCL","departure_date":"2099-12-01","return_date":"` + ret + `","alert_price":500}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPost, "/api/routes", bytes.NewBufferString(payload)))
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Create_RepoError(t *testing.T) {
+	repo := &mockRouteRepo{err: errors.New("db error")}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	payload := `{"origin":"GIG","destination":"SCL","departure_date":"2099-12-01","alert_price":500,"check_frequency_minutes":60}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPost, "/api/routes", bytes.NewBufferString(payload)))
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Update_InvalidJSON(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPut, "/api/routes/r-1", bytes.NewBufferString(`{bad`)))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestRouteHandler_Update_InvalidAlertPrice(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	payload := `{"alert_price":-10}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPut, "/api/routes/r-1", bytes.NewBufferString(payload)))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Update_InvalidFrequency(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	freq := 0
+	_ = freq
+	payload := `{"check_frequency_minutes":0}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPut, "/api/routes/r-1", bytes.NewBufferString(payload)))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Update_MissingID(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	payload := `{"alert_price":400}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPut, "/api/routes/", bytes.NewBufferString(payload)))
+	// Do not set path value — simulates missing ID
+	w := httptest.NewRecorder()
+	h.Update(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Update_InternalError(t *testing.T) {
+	repo := &mockRouteRepo{err: errors.New("db error")}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	payload := `{"alert_price":400}`
+	req := withUserCtx(httptest.NewRequest(http.MethodPut, "/api/routes/r-1", bytes.NewBufferString(payload)))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Update(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Delete_NotFound(t *testing.T) {
+	repo := &mockRouteRepo{err: repository.ErrNotFound}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodDelete, "/api/routes/r-1", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Delete(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Delete_InternalError(t *testing.T) {
+	repo := &mockRouteRepo{err: errors.New("db error")}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodDelete, "/api/routes/r-1", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Delete(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Delete_MissingID(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodDelete, "/api/routes/", nil))
+	w := httptest.NewRecorder()
+	h.Delete(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Pause_NotFound(t *testing.T) {
+	repo := &mockRouteRepo{err: repository.ErrNotFound}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/pause", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Pause(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Pause_InternalError(t *testing.T) {
+	repo := &mockRouteRepo{err: errors.New("db error")}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/pause", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Pause(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Pause_MissingID(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes//pause", nil))
+	w := httptest.NewRecorder()
+	h.Pause(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Resume_NotFound(t *testing.T) {
+	repo := &mockRouteRepo{err: repository.ErrNotFound}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/resume", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Resume(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Resume_InternalError(t *testing.T) {
+	repo := &mockRouteRepo{err: errors.New("db error")}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/resume", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Resume(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Resume_MissingID(t *testing.T) {
+	h := NewRouteHandler(&mockRouteRepo{}, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes//resume", nil))
+	w := httptest.NewRecorder()
+	h.Resume(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// mockRouteRepoMultiErr supports different errors for SetStatus vs GetByID.
+type mockRouteRepoMultiErr struct {
+	mockRouteRepo
+	getByIDErr error
+}
+
+func (m *mockRouteRepoMultiErr) GetByID(_ context.Context, _, _ string) (*models.Route, error) {
+	if m.getByIDErr != nil {
+		return nil, m.getByIDErr
+	}
+	return m.mockRouteRepo.GetByID(context.Background(), "", "")
+}
+
+func TestRouteHandler_Resume_SetStatusOK_GetByIDNotFound(t *testing.T) {
+	repo := &mockRouteRepoMultiErr{
+		mockRouteRepo: mockRouteRepo{},
+		getByIDErr:    repository.ErrNotFound,
+	}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/resume", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Resume(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_Resume_SetStatusOK_GetByIDInternalError(t *testing.T) {
+	repo := &mockRouteRepoMultiErr{
+		mockRouteRepo: mockRouteRepo{},
+		getByIDErr:    errors.New("db error"),
+	}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodPatch, "/api/routes/r-1/resume", nil))
+	req.SetPathValue("id", "r-1")
+	w := httptest.NewRecorder()
+	h.Resume(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRouteHandler_List_Error(t *testing.T) {
+	repo := &mockRouteRepo{err: errors.New("db error")}
+	h := NewRouteHandler(repo, &mockMonitor{}, &mockPriceHistoryRepo{})
+	req := withUserCtx(httptest.NewRequest(http.MethodGet, "/api/routes", nil))
+	w := httptest.NewRecorder()
+	h.List(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
 	}
 }
