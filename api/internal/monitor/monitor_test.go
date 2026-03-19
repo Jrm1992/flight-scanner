@@ -1,11 +1,387 @@
 package monitor
 
 import (
+	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jose/flight-scanner/internal/flightapi"
+	"github.com/jose/flight-scanner/internal/models"
 )
+
+// ---------------------------------------------------------------------------
+// Mock implementations
+// ---------------------------------------------------------------------------
+
+type mockFlightSearcher struct {
+	mu      sync.Mutex
+	results []flightapi.FlightResult
+	err     error
+	called  int
+}
+
+func (m *mockFlightSearcher) Search(_ context.Context, _ flightapi.SearchParams) ([]flightapi.FlightResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.called++
+	return m.results, m.err
+}
+
+type mockPriceHistoryStore struct {
+	mu       sync.Mutex
+	inserted []priceInsertCall
+	err      error
+}
+
+type priceInsertCall struct {
+	routeID  string
+	minPrice float64
+	maxPrice float64
+	avgPrice float64
+	airline  string
+}
+
+func (m *mockPriceHistoryStore) Insert(_ context.Context, routeID string, minPrice, maxPrice, avgPrice float64, airline string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.inserted = append(m.inserted, priceInsertCall{routeID, minPrice, maxPrice, avgPrice, airline})
+	return m.err
+}
+
+type mockAlertStore struct {
+	mu               sync.Mutex
+	hasAlertToday    bool
+	hasAlertTodayErr error
+	created          []alertCreateCall
+	createErr        error
+}
+
+type alertCreateCall struct {
+	routeID        string
+	alertPrice     float64
+	triggeredPrice float64
+}
+
+func (m *mockAlertStore) HasAlertToday(_ context.Context, routeID string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.hasAlertToday, m.hasAlertTodayErr
+}
+
+func (m *mockAlertStore) Create(_ context.Context, routeID string, alertPrice, triggeredPrice float64) (*models.Alert, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.created = append(m.created, alertCreateCall{routeID, alertPrice, triggeredPrice})
+	if m.createErr != nil {
+		return nil, m.createErr
+	}
+	return &models.Alert{ID: "alert-1", RouteID: routeID, AlertPrice: alertPrice, TriggeredPrice: triggeredPrice}, nil
+}
+
+type mockRouteStore struct {
+	routes []models.Route
+	err    error
+}
+
+func (m *mockRouteStore) ListActive(_ context.Context) ([]models.Route, error) {
+	return m.routes, m.err
+}
+
+// helper to build a route with a future departure date so fetchPrices won't skip it.
+func makeRoute(id, origin, dest string, alertPrice float64) models.Route {
+	future := time.Now().AddDate(0, 1, 0).Format("2006-01-02")
+	return models.Route{
+		ID:                    id,
+		Origin:                origin,
+		Destination:           dest,
+		DepartureDate:         future,
+		AlertPrice:            alertPrice,
+		CheckFrequencyMinutes: 60,
+		Status:                "active",
+	}
+}
+
+// helper to create a monitor with a parent context already set.
+func setupMonitor(fs *mockFlightSearcher, ph *mockPriceHistoryStore, as *mockAlertStore, rs *mockRouteStore) (*Monitor, context.CancelFunc) {
+	mon := New(rs, ph, as, fs)
+	ctx, cancel := context.WithCancel(context.Background())
+	mon.ctx = ctx
+	return mon, cancel
+}
+
+// ---------------------------------------------------------------------------
+// Monitor manager tests
+// ---------------------------------------------------------------------------
+
+func TestStartRoute(t *testing.T) {
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{}
+
+	mon, cancel := setupMonitor(fs, ph, as, rs)
+	defer cancel()
+
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	mon.StartRoute(route)
+
+	if !mon.IsRunning("r1") {
+		t.Error("expected route r1 to be running")
+	}
+	if mon.RunningCount() != 1 {
+		t.Errorf("expected RunningCount=1, got %d", mon.RunningCount())
+	}
+}
+
+func TestStopRoute(t *testing.T) {
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{}
+
+	mon, cancel := setupMonitor(fs, ph, as, rs)
+	defer cancel()
+
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	mon.StartRoute(route)
+	mon.StopRoute("r1")
+
+	if mon.IsRunning("r1") {
+		t.Error("expected route r1 to be stopped")
+	}
+	if mon.RunningCount() != 0 {
+		t.Errorf("expected RunningCount=0, got %d", mon.RunningCount())
+	}
+}
+
+func TestStartRoute_AlreadyRunning(t *testing.T) {
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{}
+
+	mon, cancel := setupMonitor(fs, ph, as, rs)
+	defer cancel()
+
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	mon.StartRoute(route)
+	mon.StartRoute(route) // second call should be a no-op
+
+	if mon.RunningCount() != 1 {
+		t.Errorf("expected RunningCount=1 after duplicate start, got %d", mon.RunningCount())
+	}
+}
+
+func TestRestartRoute(t *testing.T) {
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{}
+
+	mon, cancel := setupMonitor(fs, ph, as, rs)
+	defer cancel()
+
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	mon.StartRoute(route)
+
+	// Update the route and restart.
+	route.AlertPrice = 300
+	mon.RestartRoute(route)
+
+	if !mon.IsRunning("r1") {
+		t.Error("expected route r1 to be running after restart")
+	}
+	if mon.RunningCount() != 1 {
+		t.Errorf("expected RunningCount=1 after restart, got %d", mon.RunningCount())
+	}
+}
+
+func TestStopAll(t *testing.T) {
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{}
+
+	mon, cancel := setupMonitor(fs, ph, as, rs)
+	defer cancel()
+
+	for i := 0; i < 5; i++ {
+		mon.StartRoute(makeRoute(fmt.Sprintf("r%d", i), "GIG", "SCL", 500))
+	}
+
+	mon.StopAll()
+
+	if mon.RunningCount() != 0 {
+		t.Errorf("expected RunningCount=0 after StopAll, got %d", mon.RunningCount())
+	}
+}
+
+func TestRunningCount(t *testing.T) {
+	fs := &mockFlightSearcher{results: nil}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+	rs := &mockRouteStore{}
+
+	mon, cancel := setupMonitor(fs, ph, as, rs)
+	defer cancel()
+
+	mon.StartRoute(makeRoute("r1", "GIG", "SCL", 500))
+	mon.StartRoute(makeRoute("r2", "EZE", "MIA", 400))
+	mon.StartRoute(makeRoute("r3", "GRU", "CDG", 600))
+
+	if mon.RunningCount() != 3 {
+		t.Errorf("expected RunningCount=3, got %d", mon.RunningCount())
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Worker tests (via newWorker + check())
+// ---------------------------------------------------------------------------
+
+func TestWorkerCheck_Success(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 450, Airline: "LATAM"},
+			{Price: 550, Airline: "GOL"},
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	if fs.called != 1 {
+		t.Errorf("expected flightSearcher.Search called 1 time, got %d", fs.called)
+	}
+	if len(ph.inserted) != 1 {
+		t.Fatalf("expected 1 price insert, got %d", len(ph.inserted))
+	}
+	ins := ph.inserted[0]
+	if ins.routeID != "r1" {
+		t.Errorf("expected routeID=r1, got %s", ins.routeID)
+	}
+	if ins.minPrice != 450 {
+		t.Errorf("expected minPrice=450, got %f", ins.minPrice)
+	}
+	if ins.maxPrice != 550 {
+		t.Errorf("expected maxPrice=550, got %f", ins.maxPrice)
+	}
+	if ins.avgPrice != 500 {
+		t.Errorf("expected avgPrice=500, got %f", ins.avgPrice)
+	}
+	if ins.airline != "LATAM" {
+		t.Errorf("expected airline=LATAM, got %s", ins.airline)
+	}
+}
+
+func TestWorkerCheck_NoResults(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{results: []flightapi.FlightResult{}}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	if len(ph.inserted) != 0 {
+		t.Errorf("expected no price inserts for empty results, got %d", len(ph.inserted))
+	}
+}
+
+func TestWorkerCheck_AlertTriggered(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 400, Airline: "LATAM"}, // below alert threshold of 500
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{hasAlertToday: false}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	if len(as.created) != 1 {
+		t.Fatalf("expected 1 alert created, got %d", len(as.created))
+	}
+	ac := as.created[0]
+	if ac.routeID != "r1" {
+		t.Errorf("expected routeID=r1, got %s", ac.routeID)
+	}
+	if ac.alertPrice != 500 {
+		t.Errorf("expected alertPrice=500, got %f", ac.alertPrice)
+	}
+	if ac.triggeredPrice != 400 {
+		t.Errorf("expected triggeredPrice=400, got %f", ac.triggeredPrice)
+	}
+}
+
+func TestWorkerCheck_AlertDedup(t *testing.T) {
+	route := makeRoute("r1", "GIG", "SCL", 500)
+	fs := &mockFlightSearcher{
+		results: []flightapi.FlightResult{
+			{Price: 400, Airline: "LATAM"}, // below threshold
+		},
+	}
+	ph := &mockPriceHistoryStore{}
+	as := &mockAlertStore{hasAlertToday: true} // already alerted today
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	w := newWorker(ctx, route, fs, ph, as)
+	w.check()
+
+	if len(as.created) != 0 {
+		t.Errorf("expected no alert created due to dedup, got %d", len(as.created))
+	}
+}
+
+func TestParseDate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantStr string // expected formatted as 2006-01-02
+		wantErr bool
+	}{
+		{name: "plain date", input: "2026-04-15", wantStr: "2026-04-15"},
+		{name: "with timestamp", input: "2026-04-15T00:00:00Z", wantStr: "2026-04-15"},
+		{name: "with time offset", input: "2026-04-15T12:30:00+03:00", wantStr: "2026-04-15"},
+		{name: "too short", input: "2026-04", wantErr: true},
+		{name: "empty", input: "", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseDate(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error for input %q, got nil", tc.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error for input %q: %v", tc.input, err)
+			}
+			if got.Format("2006-01-02") != tc.wantStr {
+				t.Errorf("expected %s, got %s", tc.wantStr, got.Format("2006-01-02"))
+			}
+		})
+	}
+}
 
 func TestAggregateResults(t *testing.T) {
 	results := []flightapi.FlightResult{
