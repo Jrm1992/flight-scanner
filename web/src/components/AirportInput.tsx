@@ -38,9 +38,10 @@ export default function AirportInput({
     setOpen(matches.length > 0);
     setActiveIndex(-1);
     const trimmed = val.trim().toUpperCase();
-    if (/^[A-Z]{3}$/.test(trimmed)) {
+    if (/^[A-Z]{3}$/.test(trimmed) && airports.some((a) => a.code === trimmed)) {
       onChange(trimmed);
       setOpen(false);
+      setFocused(false);
     }
   }
 
@@ -48,6 +49,7 @@ export default function AirportInput({
     setQuery("");
     onChange(airport.code);
     setOpen(false);
+    setFocused(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
