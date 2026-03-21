@@ -13,14 +13,14 @@ import (
 )
 
 type mockFlightSearcher struct {
-	results              []flightapi.FlightResult
+	result               flightapi.SearchResult
 	err                  error
 	autocompleteResults  []flightapi.AutocompleteResult
 	autocompleteErr      error
 }
 
-func (m *mockFlightSearcher) Search(_ context.Context, _ flightapi.SearchParams) ([]flightapi.FlightResult, error) {
-	return m.results, m.err
+func (m *mockFlightSearcher) Search(_ context.Context, _ flightapi.SearchParams) (flightapi.SearchResult, error) {
+	return m.result, m.err
 }
 
 func (m *mockFlightSearcher) Autocomplete(_ context.Context, _ string) ([]flightapi.AutocompleteResult, error) {
@@ -38,8 +38,10 @@ func TestSearchHandler(t *testing.T) {
 			name:    "success",
 			payload: `{"origin":"GIG","destination":"SCL","date":"2026-05-01"}`,
 			mock: &mockFlightSearcher{
-				results: []flightapi.FlightResult{
-					{Price: 299, Airline: "LATAM", DepartureCode: "GIG", ArrivalCode: "SCL"},
+				result: flightapi.SearchResult{
+					Flights: []flightapi.FlightResult{
+						{Price: 299, Airline: "LATAM", DepartureCode: "GIG", ArrivalCode: "SCL"},
+					},
 				},
 			},
 			wantCode: http.StatusOK,
@@ -114,8 +116,10 @@ func TestSearchHandler_InvalidReturnDate(t *testing.T) {
 
 func TestSearchHandler_WithReturnDate(t *testing.T) {
 	mock := &mockFlightSearcher{
-		results: []flightapi.FlightResult{
-			{Price: 500, Airline: "LATAM", DepartureCode: "GIG", ArrivalCode: "SCL"},
+		result: flightapi.SearchResult{
+			Flights: []flightapi.FlightResult{
+				{Price: 500, Airline: "LATAM", DepartureCode: "GIG", ArrivalCode: "SCL"},
+			},
 		},
 	}
 	h := NewSearchHandler(mock)
@@ -130,9 +134,7 @@ func TestSearchHandler_WithReturnDate(t *testing.T) {
 }
 
 func TestSearchHandler_DefaultCurrency(t *testing.T) {
-	mock := &mockFlightSearcher{
-		results: []flightapi.FlightResult{},
-	}
+	mock := &mockFlightSearcher{}
 	h := NewSearchHandler(mock)
 	// No currency specified — should default to USD
 	payload := `{"origin":"GIG","destination":"SCL","date":"2026-05-01"}`
@@ -212,9 +214,7 @@ func TestAutocompleteHandler(t *testing.T) {
 }
 
 func TestSearchHandler_NoDate(t *testing.T) {
-	mock := &mockFlightSearcher{
-		results: []flightapi.FlightResult{},
-	}
+	mock := &mockFlightSearcher{}
 	h := NewSearchHandler(mock)
 	// No date — should default to tomorrow
 	payload := `{"origin":"GIG","destination":"SCL"}`

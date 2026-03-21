@@ -44,7 +44,7 @@ type PriceHistoryRepository interface {
 
 // FlightSearcher defines the method handlers need for flight searches.
 type FlightSearcher interface {
-	Search(ctx context.Context, params flightapi.SearchParams) ([]flightapi.FlightResult, error)
+	Search(ctx context.Context, params flightapi.SearchParams) (flightapi.SearchResult, error)
 	Autocomplete(ctx context.Context, query string) ([]flightapi.AutocompleteResult, error)
 }
 

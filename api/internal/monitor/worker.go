@@ -131,7 +131,11 @@ func (w *worker) fetchPrices() ([]flightapi.FlightResult, error) {
 		}
 	}
 
-	return w.flightClient.Search(w.ctx, params)
+	result, err := w.flightClient.Search(w.ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	return result.Flights, nil
 }
 
 // tryCreateAlert creates an alert if one hasn't already been created today for this route.

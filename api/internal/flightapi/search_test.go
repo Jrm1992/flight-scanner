@@ -52,19 +52,19 @@ func TestSearch_FullFlow(t *testing.T) {
 
 	u := srv.URL + "?" + "engine=google_flights&departure_id=" + params.DepartureID + "&arrival_id=" + params.ArrivalID
 
-	results, err := client.doSearch(context.Background(), u)
+	result, err := client.doSearch(context.Background(), u)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
+	if len(result.Flights) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result.Flights))
 	}
-	if results[0].Price != 320 {
-		t.Errorf("expected price 320, got %f", results[0].Price)
+	if result.Flights[0].Price != 320 {
+		t.Errorf("expected price 320, got %f", result.Flights[0].Price)
 	}
-	if results[0].Airline != "LATAM" {
-		t.Errorf("expected LATAM, got %q", results[0].Airline)
+	if result.Flights[0].Airline != "LATAM" {
+		t.Errorf("expected LATAM, got %q", result.Flights[0].Airline)
 	}
 }
 

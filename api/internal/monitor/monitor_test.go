@@ -22,11 +22,11 @@ type mockFlightSearcher struct {
 	called  int
 }
 
-func (m *mockFlightSearcher) Search(_ context.Context, _ flightapi.SearchParams) ([]flightapi.FlightResult, error) {
+func (m *mockFlightSearcher) Search(_ context.Context, _ flightapi.SearchParams) (flightapi.SearchResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.called++
-	return m.results, m.err
+	return flightapi.SearchResult{Flights: m.results}, m.err
 }
 
 type mockPriceHistoryStore struct {

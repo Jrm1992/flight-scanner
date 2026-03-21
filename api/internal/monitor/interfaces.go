@@ -8,7 +8,7 @@ import (
 )
 
 type flightSearcher interface {
-	Search(ctx context.Context, params flightapi.SearchParams) ([]flightapi.FlightResult, error)
+	Search(ctx context.Context, params flightapi.SearchParams) (flightapi.SearchResult, error)
 }
 
 type priceHistoryStore interface {

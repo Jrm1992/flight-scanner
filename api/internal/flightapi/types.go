@@ -93,6 +93,12 @@ type AutocompleteResult struct {
 	City string `json:"city"`
 }
 
+// SearchResult bundles flight results with optional price insights.
+type SearchResult struct {
+	Flights       []FlightResult `json:"flights"`
+	PriceInsights *PriceInsights `json:"price_insights,omitempty"`
+}
+
 // FlightResult is our internal simplified representation used by the rest of the app.
 type FlightResult struct {
 	Price         float64   `json:"price"`

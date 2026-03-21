@@ -83,17 +83,17 @@ func TestSearch_Success(t *testing.T) {
 	}
 
 	rawURL := srv.URL + "?engine=google_flights&departure_id=GIG&arrival_id=SCL&outbound_date=2026-04-01&type=2&currency=USD&adults=1&travel_class=1&hl=en&api_key=test-key"
-	results, err := client.doSearch(context.Background(), rawURL)
+	result, err := client.doSearch(context.Background(), rawURL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(results) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(results))
+	if len(result.Flights) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(result.Flights))
 	}
 
 	// Best flight: direct LATAM
-	r0 := results[0]
+	r0 := result.Flights[0]
 	if r0.Price != 320 {
 		t.Errorf("expected price 320, got %f", r0.Price)
 	}
@@ -111,7 +111,7 @@ func TestSearch_Success(t *testing.T) {
 	}
 
 	// Other flight: 1 stop via EZE
-	r1 := results[1]
+	r1 := result.Flights[1]
 	if r1.Price != 250 {
 		t.Errorf("expected price 250, got %f", r1.Price)
 	}
@@ -154,11 +154,13 @@ func TestSearch_RetryOnServerError(t *testing.T) {
 	rawURL := srv.URL + "?engine=google_flights&departure_id=GIG&arrival_id=SCL"
 
 	var lastErr error
-	var results []FlightResult
+	var result SearchResult
+	var ok bool
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		res, err := client.doSearch(context.Background(), rawURL)
 		if err == nil {
-			results = res
+			result = res
+			ok = true
 			break
 		}
 		lastErr = err
@@ -167,11 +169,11 @@ func TestSearch_RetryOnServerError(t *testing.T) {
 		}
 	}
 
-	if results == nil {
+	if !ok {
 		t.Fatalf("expected success after retries, got: %v", lastErr)
 	}
-	if len(results) != 1 || results[0].Price != 300 {
-		t.Errorf("unexpected result: %+v", results)
+	if len(result.Flights) != 1 || result.Flights[0].Price != 300 {
+		t.Errorf("unexpected result: %+v", result.Flights)
 	}
 	if attempts.Load() != 3 {
 		t.Errorf("expected 3 attempts, got %d", attempts.Load())
@@ -450,12 +452,12 @@ func TestDoSearch_EmptyResponse(t *testing.T) {
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 	}
 
-	results, err := client.doSearch(context.Background(), srv.URL)
+	result, err := client.doSearch(context.Background(), srv.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(results) != 0 {
-		t.Fatalf("expected 0 results, got %d", len(results))
+	if len(result.Flights) != 0 {
+		t.Fatalf("expected 0 results, got %d", len(result.Flights))
 	}
 }
 
@@ -587,7 +589,7 @@ func TestSearch_SuccessFirstAttempt(t *testing.T) {
 		},
 	}
 
-	results, err := client.Search(context.Background(), SearchParams{
+	result, err := client.Search(context.Background(), SearchParams{
 		DepartureID:  "GIG",
 		ArrivalID:    "SCL",
 		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
@@ -596,11 +598,11 @@ func TestSearch_SuccessFirstAttempt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
+	if len(result.Flights) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result.Flights))
 	}
-	if results[0].Price != 300 {
-		t.Errorf("expected price 300, got %f", results[0].Price)
+	if result.Flights[0].Price != 300 {
+		t.Errorf("expected price 300, got %f", result.Flights[0].Price)
 	}
 }
 
@@ -749,7 +751,7 @@ func TestSearch_RetrySucceedsOnSecondAttempt(t *testing.T) {
 		},
 	}
 
-	results, err := client.Search(context.Background(), SearchParams{
+	result, err := client.Search(context.Background(), SearchParams{
 		DepartureID:  "GIG",
 		ArrivalID:    "SCL",
 		OutboundDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
@@ -760,8 +762,8 @@ func TestSearch_RetrySucceedsOnSecondAttempt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success after retry, got: %v", err)
 	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
+	if len(result.Flights) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result.Flights))
 	}
 	if attempts.Load() != 2 {
 		t.Errorf("expected 2 attempts, got %d", attempts.Load())

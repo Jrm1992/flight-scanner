@@ -39,7 +39,7 @@ func NewClient(apiKey string) *Client {
 
 // Search queries Google Flights via SerpApi and returns parsed flight results.
 // It retries transient failures with exponential backoff.
-func (c *Client) Search(ctx context.Context, params SearchParams) ([]FlightResult, error) {
+func (c *Client) Search(ctx context.Context, params SearchParams) (SearchResult, error) {
 	if params.Currency == "" {
 		params.Currency = "USD"
 	}
@@ -60,25 +60,25 @@ func (c *Client) Search(ctx context.Context, params SearchParams) ([]FlightResul
 
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return SearchResult{}, ctx.Err()
 			case <-time.After(delay):
 			}
 		}
 
-		results, err := c.doSearch(ctx, u)
+		result, err := c.doSearch(ctx, u)
 		if err == nil {
-			return results, nil
+			return result, nil
 		}
 
 		lastErr = err
 		if !isRetryable(err) {
-			return nil, fmt.Errorf("serpapi search: %w", err)
+			return SearchResult{}, fmt.Errorf("serpapi search: %w", err)
 		}
 
 		slog.Warn("serpapi attempt failed", "attempt", attempt+1, "err", err)
 	}
 
-	return nil, fmt.Errorf("serpapi search: all %d retries exhausted: %w", maxRetries, lastErr)
+	return SearchResult{}, fmt.Errorf("serpapi search: all %d retries exhausted: %w", maxRetries, lastErr)
 }
 
 func (c *Client) buildSearchURL(params SearchParams) string {
@@ -109,10 +109,10 @@ func (c *Client) buildSearchURL(params SearchParams) string {
 	return baseURL + "?" + q.Encode()
 }
 
-func (c *Client) doSearch(ctx context.Context, rawURL string) ([]FlightResult, error) {
+func (c *Client) doSearch(ctx context.Context, rawURL string) (SearchResult, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return SearchResult{}, fmt.Errorf("create request: %w", err)
 	}
 
 	// Add API key as query parameter at request time to keep it out of logged URLs.
@@ -122,7 +122,7 @@ func (c *Client) doSearch(ctx context.Context, rawURL string) ([]FlightResult, e
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, &retryableError{err: fmt.Errorf("http request: %w", err)}
+		return SearchResult{}, &retryableError{err: fmt.Errorf("http request: %w", err)}
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -132,28 +132,31 @@ func (c *Client) doSearch(ctx context.Context, rawURL string) ([]FlightResult, e
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, &retryableError{err: fmt.Errorf("read response: %w", err)}
+		return SearchResult{}, &retryableError{err: fmt.Errorf("read response: %w", err)}
 	}
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, &retryableError{err: fmt.Errorf("rate limited (429)")}
+		return SearchResult{}, &retryableError{err: fmt.Errorf("rate limited (429)")}
 	}
 	if resp.StatusCode >= 500 {
-		return nil, &retryableError{err: fmt.Errorf("server error (%d): %s", resp.StatusCode, truncate(body, 200))}
+		return SearchResult{}, &retryableError{err: fmt.Errorf("server error (%d): %s", resp.StatusCode, truncate(body, 200))}
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, truncate(body, 200))
+		return SearchResult{}, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, truncate(body, 200))
 	}
 
 	var serpResp SerpResponse
 	if err := json.Unmarshal(body, &serpResp); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		return SearchResult{}, fmt.Errorf("decode response: %w", err)
 	}
 
-	results := toFlightResults(serpResp.BestFlights)
-	results = append(results, toFlightResults(serpResp.OtherFlights)...)
+	flights := toFlightResults(serpResp.BestFlights)
+	flights = append(flights, toFlightResults(serpResp.OtherFlights)...)
 
-	return results, nil
+	return SearchResult{
+		Flights:       flights,
+		PriceInsights: serpResp.PriceInsights,
+	}, nil
 }
 
 // toFlightResults converts SerpApi flight groups into our internal model.

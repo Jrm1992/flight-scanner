@@ -102,7 +102,7 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		params.Currency = "USD"
 	}
 
-	results, err := h.client.Search(r.Context(), params)
+	result, err := h.client.Search(r.Context(), params)
 	if err != nil {
 		slog.Error("flight search failed", "err", err)
 		writeError(w, http.StatusBadGateway, "flight search temporarily unavailable")
@@ -110,11 +110,12 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"origin":      req.Origin,
-		"destination": req.Destination,
-		"date":        outbound.Format("2006-01-02"),
-		"currency":    params.Currency,
-		"results":     results,
-		"count":       len(results),
+		"origin":         req.Origin,
+		"destination":    req.Destination,
+		"date":           outbound.Format("2006-01-02"),
+		"currency":       params.Currency,
+		"results":        result.Flights,
+		"count":          len(result.Flights),
+		"price_insights": result.PriceInsights,
 	})
 }
