@@ -37,12 +37,6 @@ export default function AirportInput({
     setResults(matches);
     setOpen(matches.length > 0);
     setActiveIndex(-1);
-    const trimmed = val.trim().toUpperCase();
-    if (/^[A-Z]{3}$/.test(trimmed) && airports.some((a) => a.code === trimmed)) {
-      onChange(trimmed);
-      setOpen(false);
-      setFocused(false);
-    }
   }
 
   function handleSelect(airport: Airport) {
@@ -70,6 +64,10 @@ export default function AirportInput({
 
   function handleBlur(e: React.FocusEvent) {
     if (!wrapperRef.current?.contains(e.relatedTarget as Node)) {
+      const trimmed = query.trim().toUpperCase();
+      if (/^[A-Z]{3}$/.test(trimmed) && airports.some((a) => a.code === trimmed)) {
+        onChange(trimmed);
+      }
       setOpen(false);
       setFocused(false);
       setQuery("");

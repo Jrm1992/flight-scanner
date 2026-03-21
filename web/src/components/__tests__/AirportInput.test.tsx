@@ -41,11 +41,12 @@ describe("AirportInput", () => {
     expect(screen.getByText("MIA")).toBeDefined();
   });
 
-  it("calls onChange when 3-letter code is typed", () => {
+  it("calls onChange when 3-letter code is typed and input blurs", () => {
     const { onChange } = renderInput();
     const input = screen.getByPlaceholderText("Airport");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "GIG" } });
+    fireEvent.blur(input, { relatedTarget: document.body });
     expect(onChange).toHaveBeenCalledWith("GIG");
   });
 
