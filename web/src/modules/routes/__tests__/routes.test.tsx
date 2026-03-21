@@ -94,12 +94,14 @@ describe("RouteList", () => {
 
     fireEvent.click(screen.getByText("+ Add Route"));
 
-    fireEvent.change(screen.getByPlaceholderText(/Origin/), {
-      target: { value: "GIG" },
-    });
-    fireEvent.change(screen.getByPlaceholderText(/Dest/), {
-      target: { value: "SCL" },
-    });
+    const originInput = screen.getByPlaceholderText(/Origin/);
+    const destInput = screen.getByPlaceholderText(/Dest/);
+    fireEvent.focus(originInput);
+    fireEvent.change(originInput, { target: { value: "GIG" } });
+    fireEvent.blur(originInput, { relatedTarget: document.body });
+    fireEvent.focus(destInput);
+    fireEvent.change(destInput, { target: { value: "SCL" } });
+    fireEvent.blur(destInput, { relatedTarget: document.body });
     fireEvent.change(screen.getByPlaceholderText(/Alert price/), {
       target: { value: "500" },
     });

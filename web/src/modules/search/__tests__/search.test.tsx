@@ -50,16 +50,18 @@ describe("SearchFlights", () => {
 
     render(<SearchFlights />);
 
-    fireEvent.change(screen.getByPlaceholderText(/Origin/), {
-      target: { value: "GIG" },
-    });
-    fireEvent.change(screen.getByPlaceholderText(/Dest/), {
-      target: { value: "SCL" },
-    });
+    const originInput = screen.getByPlaceholderText(/Origin/);
+    const destInput = screen.getByPlaceholderText(/Dest/);
+    fireEvent.focus(originInput);
+    fireEvent.change(originInput, { target: { value: "GIG" } });
+    fireEvent.blur(originInput, { relatedTarget: document.body });
+    fireEvent.focus(destInput);
+    fireEvent.change(destInput, { target: { value: "SCL" } });
+    fireEvent.blur(destInput, { relatedTarget: document.body });
     fireEvent.click(screen.getByRole("button", { name: /Search/ }));
 
     await waitFor(() => {
-      expect(screen.getByText("$299")).toBeDefined();
+      expect(screen.getByText(/R\$\s*299/)).toBeDefined();
       expect(screen.getByText("LATAM")).toBeDefined();
       expect(screen.getByText("Direct")).toBeDefined();
     });
@@ -70,12 +72,14 @@ describe("SearchFlights", () => {
 
     render(<SearchFlights />);
 
-    fireEvent.change(screen.getByPlaceholderText(/Origin/), {
-      target: { value: "GIG" },
-    });
-    fireEvent.change(screen.getByPlaceholderText(/Dest/), {
-      target: { value: "SCL" },
-    });
+    const originInput = screen.getByPlaceholderText(/Origin/);
+    const destInput = screen.getByPlaceholderText(/Dest/);
+    fireEvent.focus(originInput);
+    fireEvent.change(originInput, { target: { value: "GIG" } });
+    fireEvent.blur(originInput, { relatedTarget: document.body });
+    fireEvent.focus(destInput);
+    fireEvent.change(destInput, { target: { value: "SCL" } });
+    fireEvent.blur(destInput, { relatedTarget: document.body });
     fireEvent.click(screen.getByRole("button", { name: /Search/ }));
 
     await waitFor(() => {

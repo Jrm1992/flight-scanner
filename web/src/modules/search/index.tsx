@@ -18,6 +18,8 @@ export default function Search({ onMonitor }: SearchProps) {
       onDestinationChange={model.setDestination}
       date={model.date}
       onDateChange={model.setDate}
+      currency={model.currency}
+      onCurrencyChange={model.setCurrency}
       onSubmit={model.handleSearch}
       loading={model.loading}
       error={model.error}

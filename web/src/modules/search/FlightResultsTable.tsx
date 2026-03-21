@@ -5,8 +5,19 @@ import { formatDuration, formatTime } from "@/lib/formatters";
 import Button from "@/components/ui/Button";
 import { motion } from "framer-motion";
 
+const currencySymbols: Record<string, string> = {
+  BRL: "R$",
+  USD: "$",
+  EUR: "\u20AC",
+  GBP: "\u00A3",
+  ARS: "ARS$",
+  CLP: "CLP$",
+  COP: "COP$",
+};
+
 interface FlightResultsTableProps {
   results: FlightResult[];
+  currency?: string;
   onMonitor?: (origin: string, destination: string, price: number) => void;
 }
 
@@ -22,8 +33,10 @@ const rowVariants = {
 
 export default function FlightResultsTable({
   results,
+  currency = "BRL",
   onMonitor,
 }: FlightResultsTableProps) {
+  const symbol = currencySymbols[currency] || currency;
   if (results.length === 0) return null;
 
   return (
@@ -53,7 +66,7 @@ export default function FlightResultsTable({
               className="border-b border-border last:border-0 hover:bg-white/5 transition-colors duration-150"
             >
               <td className="py-3 px-4 font-semibold text-emerald-400 font-data">
-                ${f.price}
+                {symbol} {f.price}
               </td>
               <td className="py-3 px-4 text-foreground">{f.airline}</td>
               <td className="py-3 px-4 text-muted-foreground">

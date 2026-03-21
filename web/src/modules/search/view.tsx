@@ -9,6 +9,8 @@ interface SearchViewProps {
   onDestinationChange: (v: string) => void;
   date: string;
   onDateChange: (v: string) => void;
+  currency: string;
+  onCurrencyChange: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   loading: boolean;
   error: string;
@@ -23,6 +25,8 @@ export default function SearchView({
   onDestinationChange,
   date,
   onDateChange,
+  currency,
+  onCurrencyChange,
   onSubmit,
   loading,
   error,
@@ -42,6 +46,8 @@ export default function SearchView({
         onDestinationChange={onDestinationChange}
         date={date}
         onDateChange={onDateChange}
+        currency={currency}
+        onCurrencyChange={onCurrencyChange}
         onSubmit={onSubmit}
         loading={loading}
       />
@@ -50,7 +56,7 @@ export default function SearchView({
         <p className="text-[var(--color-danger)] mb-4 text-sm">{error}</p>
       )}
 
-      <FlightResultsTable results={results} onMonitor={onMonitor} />
+      <FlightResultsTable results={results} currency={currency} onMonitor={onMonitor} />
     </div>
   );
 }

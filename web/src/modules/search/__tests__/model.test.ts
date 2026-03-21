@@ -40,6 +40,7 @@ describe("useSearchModel", () => {
     expect(result.current.origin).toBe("");
     expect(result.current.destination).toBe("");
     expect(result.current.date).toBe("");
+    expect(result.current.currency).toBe("BRL");
   });
 
   it("updates origin via setOrigin", () => {
@@ -116,7 +117,7 @@ describe("useSearchModel", () => {
     expect(result.current.loading).toBe(false);
     expect(result.current.results).toEqual(mockResults);
     expect(result.current.error).toBe("");
-    expect(mockSearchFlights).toHaveBeenCalledWith("JFK", "LAX", "2026-04-01");
+    expect(mockSearchFlights).toHaveBeenCalledWith("JFK", "LAX", "2026-04-01", "BRL");
   });
 
   it("passes undefined for date when date is empty", async () => {
@@ -134,7 +135,7 @@ describe("useSearchModel", () => {
       await result.current.handleSearch(mockEvent);
     });
 
-    expect(mockSearchFlights).toHaveBeenCalledWith("JFK", "LAX", undefined);
+    expect(mockSearchFlights).toHaveBeenCalledWith("JFK", "LAX", undefined, "BRL");
   });
 
   it("sets error and clears results on failed search", async () => {

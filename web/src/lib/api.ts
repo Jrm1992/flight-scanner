@@ -112,11 +112,12 @@ export async function resumeRoute(id: string): Promise<void> {
 export async function searchFlights(
   origin: string,
   destination: string,
-  date?: string
+  date?: string,
+  currency?: string
 ): Promise<SearchResponse> {
   return request<SearchResponse>("/api/search/flights", {
     method: "POST",
-    body: JSON.stringify({ origin, destination, date }),
+    body: JSON.stringify({ origin, destination, date, currency }),
   });
 }
 
