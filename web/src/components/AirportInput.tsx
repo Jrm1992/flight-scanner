@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { searchAirports, airports, type Airport } from "@/lib/airports";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { searchAirportsAPI } from "@/lib/api";
+import type { AirportSuggestion } from "@/lib/types";
 
 interface Props {
   value: string;
@@ -9,12 +10,6 @@ interface Props {
   placeholder?: string;
   required?: boolean;
   className?: string;
-}
-
-function displayValue(code: string): string {
-  if (!code) return "";
-  const match = airports.find((a) => a.code === code);
-  return match ? `${match.code} - ${match.city}` : code;
 }
 
 export default function AirportInput({
@@ -25,22 +20,48 @@ export default function AirportInput({
   className = "",
 }: Props) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Airport[]>([]);
+  const [results, setResults] = useState<AirportSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [displayLabel, setDisplayLabel] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const fetchSuggestions = useCallback((q: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!q || q.length < 2) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const data = await searchAirportsAPI(q);
+        setResults(data);
+        setOpen(data.length > 0);
+        setActiveIndex(-1);
+      } catch {
+        setResults([]);
+        setOpen(false);
+      }
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   function handleInput(val: string) {
     setQuery(val);
-    const matches = searchAirports(val);
-    setResults(matches);
-    setOpen(matches.length > 0);
-    setActiveIndex(-1);
+    fetchSuggestions(val);
   }
 
-  function handleSelect(airport: Airport) {
+  function handleSelect(airport: AirportSuggestion) {
     setQuery("");
+    setDisplayLabel(`${airport.code} - ${airport.city}`);
     onChange(airport.code);
     setOpen(false);
     setFocused(false);
@@ -65,8 +86,11 @@ export default function AirportInput({
   function handleBlur(e: React.FocusEvent) {
     if (!wrapperRef.current?.contains(e.relatedTarget as Node)) {
       const trimmed = query.trim().toUpperCase();
-      if (/^[A-Z]{3}$/.test(trimmed) && airports.some((a) => a.code === trimmed)) {
+      if (/^[A-Z]{3}$/.test(trimmed)) {
         onChange(trimmed);
+        if (!displayLabel || !displayLabel.startsWith(trimmed)) {
+          setDisplayLabel(trimmed);
+        }
       }
       setOpen(false);
       setFocused(false);
@@ -74,16 +98,17 @@ export default function AirportInput({
     }
   }
 
+  const shownValue = focused ? query : displayLabel || value;
+
   return (
     <div ref={wrapperRef} className="relative" tabIndex={-1} onBlur={handleBlur}>
       <input
         type="text"
-        value={focused ? query : displayValue(value)}
+        value={shownValue}
         onChange={(e) => handleInput(e.target.value)}
         onFocus={() => {
           setFocused(true);
           setQuery("");
-          handleInput("");
         }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
@@ -104,7 +129,6 @@ export default function AirportInput({
                 <span className="font-semibold">{a.code}</span>{" "}
                 <span className="text-muted">{a.city}</span>
               </span>
-              <span className="text-muted-foreground text-xs">{a.country}</span>
             </li>
           ))}
         </ul>

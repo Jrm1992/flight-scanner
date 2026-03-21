@@ -210,6 +210,66 @@ func isRetryable(err error) bool {
 	return errors.As(err, &re)
 }
 
+// Autocomplete queries the Google Flights Autocomplete API via SerpApi.
+func (c *Client) Autocomplete(ctx context.Context, query string) ([]AutocompleteResult, error) {
+	q := url.Values{}
+	q.Set("engine", "google_flights_autocomplete")
+	q.Set("q", query)
+	q.Set("api_key", c.apiKey)
+
+	reqURL := baseURL + "?" + q.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("body close error", "err", err)
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, truncate(body, 200))
+	}
+
+	var acResp AutocompleteResponse
+	if err := json.Unmarshal(body, &acResp); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	var results []AutocompleteResult
+	seen := make(map[string]bool)
+	for _, s := range acResp.Suggestions {
+		for _, a := range s.Airports {
+			if a.ID == "" || seen[a.ID] {
+				continue
+			}
+			seen[a.ID] = true
+			city := a.City
+			if city == "" {
+				city = s.Name
+			}
+			results = append(results, AutocompleteResult{
+				Code: a.ID,
+				Name: a.Name,
+				City: city,
+			})
+		}
+	}
+
+	return results, nil
+}
+
 func truncate(b []byte, max int) string {
 	if len(b) <= max {
 		return string(b)

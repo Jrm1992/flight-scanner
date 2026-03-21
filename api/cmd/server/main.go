@@ -113,6 +113,7 @@ func main() {
 	mux.HandleFunc("GET /api/routes/{id}/history", auth(historyHandler.GetHistory))
 	mux.HandleFunc("GET /api/routes/{id}/history/export", auth(historyHandler.Export))
 	mux.HandleFunc("POST /api/search/flights", auth(searchHandler.Search))
+	mux.HandleFunc("GET /api/search/airports", auth(searchHandler.Autocomplete))
 	mux.HandleFunc("GET /api/alerts", auth(alertHandler.List))
 	mux.HandleFunc("PATCH /api/alerts/{id}/mark-read", auth(alertHandler.MarkRead))
 

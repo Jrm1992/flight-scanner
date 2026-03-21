@@ -8,6 +8,7 @@ import type {
   AuthResponse,
   RegisterRequest,
   LoginRequest,
+  AirportSuggestion,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -119,6 +120,11 @@ export async function searchFlights(
     method: "POST",
     body: JSON.stringify({ origin, destination, date, currency }),
   });
+}
+
+// Airport autocomplete
+export async function searchAirportsAPI(query: string): Promise<AirportSuggestion[]> {
+  return request<AirportSuggestion[]>(`/api/search/airports?q=${encodeURIComponent(query)}`);
 }
 
 // History

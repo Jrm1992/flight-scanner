@@ -97,6 +97,12 @@ export interface HistoryResponse {
   count: number;
 }
 
+export interface AirportSuggestion {
+  code: string;
+  name: string;
+  city: string;
+}
+
 export interface Alert {
   id: string;
   route_id: string;

@@ -31,6 +31,28 @@ type searchRequest struct {
 // RegisterRoutes registers search handler endpoints on the given mux.
 func (h *SearchHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/search/flights", h.Search)
+	mux.HandleFunc("GET /api/search/airports", h.Autocomplete)
+}
+
+func (h *SearchHandler) Autocomplete(w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if q == "" {
+		writeJSON(w, http.StatusOK, []any{})
+		return
+	}
+
+	results, err := h.client.Autocomplete(r.Context(), q)
+	if err != nil {
+		slog.Error("airport autocomplete failed", "err", err)
+		writeError(w, http.StatusBadGateway, "airport autocomplete temporarily unavailable")
+		return
+	}
+
+	if results == nil {
+		results = []flightapi.AutocompleteResult{}
+	}
+
+	writeJSON(w, http.StatusOK, results)
 }
 
 func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {

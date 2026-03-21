@@ -13,12 +13,18 @@ import (
 )
 
 type mockFlightSearcher struct {
-	results []flightapi.FlightResult
-	err     error
+	results              []flightapi.FlightResult
+	err                  error
+	autocompleteResults  []flightapi.AutocompleteResult
+	autocompleteErr      error
 }
 
 func (m *mockFlightSearcher) Search(_ context.Context, _ flightapi.SearchParams) ([]flightapi.FlightResult, error) {
 	return m.results, m.err
+}
+
+func (m *mockFlightSearcher) Autocomplete(_ context.Context, _ string) ([]flightapi.AutocompleteResult, error) {
+	return m.autocompleteResults, m.autocompleteErr
 }
 
 func TestSearchHandler(t *testing.T) {
@@ -146,6 +152,62 @@ func TestSearchHandler_DefaultCurrency(t *testing.T) {
 	}
 	if resp.Currency != "USD" {
 		t.Fatalf("expected currency USD, got %q", resp.Currency)
+	}
+}
+
+func TestAutocompleteHandler(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		mock     *mockFlightSearcher
+		wantCode int
+	}{
+		{
+			name:  "success",
+			query: "san",
+			mock: &mockFlightSearcher{
+				autocompleteResults: []flightapi.AutocompleteResult{
+					{Code: "SAN", Name: "San Diego Intl", City: "San Diego"},
+					{Code: "SCL", Name: "Santiago Intl", City: "Santiago"},
+				},
+			},
+			wantCode: http.StatusOK,
+		},
+		{
+			name:     "empty query returns empty array",
+			query:    "",
+			mock:     &mockFlightSearcher{},
+			wantCode: http.StatusOK,
+		},
+		{
+			name:     "api error",
+			query:    "test",
+			mock:     &mockFlightSearcher{autocompleteErr: errors.New("api down")},
+			wantCode: http.StatusBadGateway,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewSearchHandler(tt.mock)
+			req := httptest.NewRequest(http.MethodGet, "/api/search/airports?q="+tt.query, nil)
+			w := httptest.NewRecorder()
+			h.Autocomplete(w, req)
+
+			if w.Code != tt.wantCode {
+				t.Fatalf("expected %d, got %d: %s", tt.wantCode, w.Code, w.Body.String())
+			}
+
+			if tt.wantCode == http.StatusOK && tt.query != "" {
+				var resp []flightapi.AutocompleteResult
+				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+					t.Fatalf("json unmarshal: %v", err)
+				}
+				if len(resp) != 2 {
+					t.Fatalf("expected 2 results, got %d", len(resp))
+				}
+			}
+		})
 	}
 }
 

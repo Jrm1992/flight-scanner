@@ -67,6 +67,32 @@ type PriceInsights struct {
 	PriceHistory      [][2]int64 `json:"price_history"` // [timestamp, price]
 }
 
+// AutocompleteResponse is the top-level SerpApi Google Flights Autocomplete response.
+type AutocompleteResponse struct {
+	Suggestions []AutocompleteSuggestion `json:"suggestions"`
+}
+
+// AutocompleteSuggestion is a location suggestion from the autocomplete API.
+type AutocompleteSuggestion struct {
+	Name     string                `json:"name"`
+	Type     string                `json:"type"`
+	Airports []AutocompleteAirport `json:"airports"`
+}
+
+// AutocompleteAirport is an airport within a suggestion.
+type AutocompleteAirport struct {
+	Name string `json:"name"`
+	ID   string `json:"id"`
+	City string `json:"city"`
+}
+
+// AutocompleteResult is our simplified airport result.
+type AutocompleteResult struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+	City string `json:"city"`
+}
+
 // FlightResult is our internal simplified representation used by the rest of the app.
 type FlightResult struct {
 	Price         float64   `json:"price"`

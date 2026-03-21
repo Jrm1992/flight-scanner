@@ -45,6 +45,7 @@ type PriceHistoryRepository interface {
 // FlightSearcher defines the method handlers need for flight searches.
 type FlightSearcher interface {
 	Search(ctx context.Context, params flightapi.SearchParams) ([]flightapi.FlightResult, error)
+	Autocomplete(ctx context.Context, query string) ([]flightapi.AutocompleteResult, error)
 }
 
 // RouteMonitor defines the methods handlers need for managing route monitoring.
