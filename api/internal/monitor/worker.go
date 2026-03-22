@@ -119,7 +119,7 @@ func (w *worker) fetchPrices() ([]flightapi.FlightResult, error) {
 		DepartureID:  w.route.Origin,
 		ArrivalID:    w.route.Destination,
 		OutboundDate: departure,
-		Currency:     "USD",
+		Currency:     w.route.Currency,
 		Adults:       1,
 		TravelClass:  1, // economy
 	}

@@ -77,6 +77,10 @@ var migrations = []struct {
 		sql: `ALTER TABLE routes ADD COLUMN departure_date DATE NOT NULL DEFAULT CURRENT_DATE + 1;
 		ALTER TABLE routes ADD COLUMN return_date DATE;`,
 	},
+	{
+		name: "add_currency_to_routes",
+		sql:  `ALTER TABLE routes ADD COLUMN currency VARCHAR(3) DEFAULT 'BRL';`,
+	},
 }
 
 // RunMigrations executes all pending migrations in order.

@@ -12,7 +12,7 @@ import (
 
 var routeCols = []string{
 	"id", "user_id", "origin", "destination", "departure_date", "return_date",
-	"alert_price", "check_frequency_minutes", "status", "created_at", "updated_at",
+	"currency", "alert_price", "check_frequency_minutes", "status", "created_at", "updated_at",
 }
 
 func TestRouteRepo_Create(t *testing.T) {
@@ -27,10 +27,10 @@ func TestRouteRepo_Create(t *testing.T) {
 	returnDate := "2026-04-20"
 
 	mock.ExpectQuery(`INSERT INTO routes`).
-		WithArgs("user-1", "JFK", "LAX", "2026-04-10", &returnDate, 150.0, 60).
+		WithArgs("user-1", "JFK", "LAX", "2026-04-10", &returnDate, "BRL", 150.0, 60).
 		WillReturnRows(sqlmock.NewRows(routeCols).AddRow(
 			"route-1", "user-1", "JFK", "LAX", "2026-04-10", &returnDate,
-			150.0, 60, "active", now, now,
+			"BRL", 150.0, 60, "active", now, now,
 		))
 
 	req := models.CreateRouteRequest{
@@ -38,6 +38,7 @@ func TestRouteRepo_Create(t *testing.T) {
 		Destination:           "LAX",
 		DepartureDate:         "2026-04-10",
 		ReturnDate:            &returnDate,
+		Currency:              "BRL",
 		AlertPrice:            150.0,
 		CheckFrequencyMinutes: 60,
 	}
@@ -73,7 +74,7 @@ func TestRouteRepo_GetByID(t *testing.T) {
 		WithArgs("route-1", "user-1").
 		WillReturnRows(sqlmock.NewRows(routeCols).AddRow(
 			"route-1", "user-1", "JFK", "LAX", "2026-04-10", nil,
-			200.0, 30, "active", now, now,
+			"USD", 200.0, 30, "active", now, now,
 		))
 
 	route, err := repo.GetByID(context.Background(), "user-1", "route-1")
@@ -126,8 +127,8 @@ func TestRouteRepo_ListAll(t *testing.T) {
 	mock.ExpectQuery(`SELECT .+ FROM routes WHERE user_id = .+ ORDER BY created_at DESC`).
 		WithArgs("user-1").
 		WillReturnRows(sqlmock.NewRows(routeCols).
-			AddRow("r-1", "user-1", "JFK", "LAX", "2026-04-10", nil, 100.0, 60, "active", now, now).
-			AddRow("r-2", "user-1", "SFO", "ORD", "2026-05-01", nil, 200.0, 30, "paused", now, now),
+			AddRow("r-1", "user-1", "JFK", "LAX", "2026-04-10", nil, "BRL", 100.0, 60, "active", now, now).
+			AddRow("r-2", "user-1", "SFO", "ORD", "2026-05-01", nil, "USD", 200.0, 30, "paused", now, now),
 		)
 
 	routes, err := repo.ListAll(context.Background(), "user-1")
@@ -160,7 +161,7 @@ func TestRouteRepo_ListActive(t *testing.T) {
 
 	mock.ExpectQuery(`SELECT .+ FROM routes WHERE status = 'active' ORDER BY created_at DESC`).
 		WillReturnRows(sqlmock.NewRows(routeCols).
-			AddRow("r-1", "user-1", "JFK", "LAX", "2026-04-10", nil, 100.0, 60, "active", now, now),
+			AddRow("r-1", "user-1", "JFK", "LAX", "2026-04-10", nil, "BRL", 100.0, 60, "active", now, now),
 		)
 
 	routes, err := repo.ListActive(context.Background())
@@ -194,7 +195,7 @@ func TestRouteRepo_Update(t *testing.T) {
 		WithArgs("route-1", "user-1", &newPrice, &newFreq).
 		WillReturnRows(sqlmock.NewRows(routeCols).AddRow(
 			"route-1", "user-1", "JFK", "LAX", "2026-04-10", nil,
-			120.0, 15, "active", now, now,
+			"BRL", 120.0, 15, "active", now, now,
 		))
 
 	req := models.UpdateRouteRequest{

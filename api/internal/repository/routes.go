@@ -19,13 +19,13 @@ func NewRouteRepo(db *sql.DB) *RouteRepo {
 	return &RouteRepo{db: db}
 }
 
-const routeColumns = `id, user_id, origin, destination, departure_date, return_date, alert_price, check_frequency_minutes, status, created_at, updated_at`
+const routeColumns = `id, user_id, origin, destination, departure_date, return_date, currency, alert_price, check_frequency_minutes, status, created_at, updated_at`
 
 func scanRoute(scanner interface{ Scan(...any) error }) (*models.Route, error) {
 	var route models.Route
 	err := scanner.Scan(
 		&route.ID, &route.UserID, &route.Origin, &route.Destination,
-		&route.DepartureDate, &route.ReturnDate,
+		&route.DepartureDate, &route.ReturnDate, &route.Currency,
 		&route.AlertPrice, &route.CheckFrequencyMinutes, &route.Status,
 		&route.CreatedAt, &route.UpdatedAt,
 	)
@@ -40,10 +40,10 @@ func (r *RouteRepo) Create(ctx context.Context, userID string, req models.Create
 	}
 
 	route, err := scanRoute(r.db.QueryRowContext(ctx, `
-		INSERT INTO routes (user_id, origin, destination, departure_date, return_date, alert_price, check_frequency_minutes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO routes (user_id, origin, destination, departure_date, return_date, currency, alert_price, check_frequency_minutes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING `+routeColumns,
-		userID, req.Origin, req.Destination, req.DepartureDate, req.ReturnDate, req.AlertPrice, freq,
+		userID, req.Origin, req.Destination, req.DepartureDate, req.ReturnDate, req.Currency, req.AlertPrice, freq,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("insert route: %w", err)

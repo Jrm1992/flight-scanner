@@ -38,6 +38,7 @@ type Route struct {
 	Destination           string    `json:"destination"`
 	DepartureDate         string    `json:"departure_date"`
 	ReturnDate            *string   `json:"return_date,omitempty"`
+	Currency              string    `json:"currency"`
 	AlertPrice            float64   `json:"alert_price"`
 	CheckFrequencyMinutes int       `json:"check_frequency_minutes"`
 	Status                string    `json:"status"`
@@ -81,6 +82,7 @@ type CreateRouteRequest struct {
 	Destination           string  `json:"destination"`
 	DepartureDate         string  `json:"departure_date"`
 	ReturnDate            *string `json:"return_date,omitempty"`
+	Currency              string  `json:"currency"`
 	AlertPrice            float64 `json:"alert_price"`
 	CheckFrequencyMinutes int     `json:"check_frequency_minutes"`
 }

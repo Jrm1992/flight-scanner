@@ -59,6 +59,9 @@ func (h *RouteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "check_frequency_minutes cannot be negative")
 		return
 	}
+	if req.Currency == "" {
+		req.Currency = "BRL"
+	}
 
 	departure, err := time.Parse("2006-01-02", req.DepartureDate)
 	if err != nil {
