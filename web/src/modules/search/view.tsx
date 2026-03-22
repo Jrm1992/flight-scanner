@@ -1,6 +1,7 @@
 import SearchForm from "./SearchForm";
 import FlightResultsTable from "./FlightResultsTable";
-import type { FlightResult } from "@/lib/types";
+import PriceInsightsCard from "./PriceInsightsCard";
+import type { FlightResult, PriceInsights } from "@/lib/types";
 
 interface SearchViewProps {
   origin: string;
@@ -15,6 +16,7 @@ interface SearchViewProps {
   loading: boolean;
   error: string;
   results: FlightResult[];
+  priceInsights: PriceInsights | null;
   onMonitor?: (origin: string, destination: string, price: number) => void;
 }
 
@@ -31,6 +33,7 @@ export default function SearchView({
   loading,
   error,
   results,
+  priceInsights,
   onMonitor,
 }: SearchViewProps) {
   return (
@@ -55,6 +58,8 @@ export default function SearchView({
       {error && (
         <p className="text-[var(--color-danger)] mb-4 text-sm">{error}</p>
       )}
+
+      {priceInsights && <PriceInsightsCard insights={priceInsights} currency={currency} />}
 
       <FlightResultsTable results={results} currency={currency} onMonitor={onMonitor} />
     </div>

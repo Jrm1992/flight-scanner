@@ -26,7 +26,7 @@ export default function AirportInput({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [displayLabel, setDisplayLabel] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const fetchSuggestions = useCallback((q: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

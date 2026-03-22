@@ -24,6 +24,7 @@ export default function Search({ onMonitor }: SearchProps) {
       loading={model.loading}
       error={model.error}
       results={model.results}
+      priceInsights={model.priceInsights}
       onMonitor={onMonitor}
     />
   );

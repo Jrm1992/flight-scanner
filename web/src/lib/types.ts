@@ -63,6 +63,13 @@ export interface FlightResult {
   stops: number;
 }
 
+export interface PriceInsights {
+  lowest_price: number;
+  price_level: string;
+  typical_price_range: [number, number];
+  price_history: [number, number][];
+}
+
 export interface SearchResponse {
   origin: string;
   destination: string;
@@ -70,6 +77,7 @@ export interface SearchResponse {
   currency: string;
   results: FlightResult[];
   count: number;
+  price_insights?: PriceInsights;
 }
 
 export interface PriceHistory {

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { searchFlights } from "@/lib/api";
-import type { FlightResult } from "@/lib/types";
+import type { FlightResult, PriceInsights } from "@/lib/types";
 
 export function useSearchModel() {
   const [results, setResults] = useState<FlightResult[]>([]);
@@ -10,6 +10,7 @@ export function useSearchModel() {
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState("");
   const [currency, setCurrency] = useState("BRL");
+  const [priceInsights, setPriceInsights] = useState<PriceInsights | null>(null);
 
   const handleSearch = useCallback(
     async (e: React.FormEvent) => {
@@ -19,9 +20,11 @@ export function useSearchModel() {
       try {
         const data = await searchFlights(origin, destination, date || undefined, currency);
         setResults(data.results);
+        setPriceInsights(data.price_insights ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Search failed");
         setResults([]);
+        setPriceInsights(null);
       } finally {
         setLoading(false);
       }
@@ -41,6 +44,7 @@ export function useSearchModel() {
     setDate,
     currency,
     setCurrency,
+    priceInsights,
     handleSearch,
   };
 }
