@@ -85,7 +85,7 @@ export default function PriceInsightsCard({
               width={60}
             />
             <Tooltip
-              formatter={(value: number) => [`${sym} ${value}`, "Price"]}
+              formatter={(value) => [`${sym} ${value}`, "Price"]}
               contentStyle={{
                 backgroundColor: "#1e293b",
                 border: "1px solid rgba(255,255,255,0.1)",
