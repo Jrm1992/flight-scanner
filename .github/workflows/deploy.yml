@@ -15,6 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Create .env from secrets
+        run: |
+          cat > .env << EOF
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          SERPAPI_KEY=${{ secrets.SERPAPI_KEY }}
+          ENV=production
+          FRONTEND_URL=http://localhost
+          EOF
+
       - name: Build and deploy
         run: |
           docker compose up --build -d
@@ -24,3 +34,7 @@ jobs:
         run: |
           sleep 5
           curl -sf http://localhost/health || (docker compose logs --tail=20 && exit 1)
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f .env
