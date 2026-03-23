@@ -10,6 +10,8 @@ interface RouteCreateFormProps {
   onDepartureDateChange: (v: string) => void;
   returnDate: string;
   onReturnDateChange: (v: string) => void;
+  currency: string;
+  onCurrencyChange: (v: string) => void;
   alertPrice: string;
   onAlertPriceChange: (v: string) => void;
   frequency: string;
@@ -22,6 +24,11 @@ interface RouteCreateFormProps {
 
 const inputClass =
   "rounded-md border border-border bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50";
+
+const currencySymbols: Record<string, string> = {
+  BRL: "R$", USD: "$", EUR: "\u20AC", GBP: "\u00A3",
+  ARS: "ARS$", CLP: "CLP$", COP: "COP$",
+};
 
 function getTomorrow() {
   const d = new Date();
@@ -38,6 +45,8 @@ export default function RouteCreateForm({
   onDepartureDateChange,
   returnDate,
   onReturnDateChange,
+  currency,
+  onCurrencyChange,
   alertPrice,
   onAlertPriceChange,
   frequency,
@@ -48,6 +57,7 @@ export default function RouteCreateForm({
   savings,
 }: RouteCreateFormProps) {
   const minDate = getTomorrow();
+  const sym = currencySymbols[currency] || currency;
 
   return (
     <form
@@ -91,9 +101,22 @@ export default function RouteCreateForm({
           className={inputClass}
         />
       </div>
+      <select
+        value={currency}
+        onChange={(e) => onCurrencyChange(e.target.value)}
+        className={inputClass}
+      >
+        <option value="BRL">BRL</option>
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+        <option value="GBP">GBP</option>
+        <option value="ARS">ARS</option>
+        <option value="CLP">CLP</option>
+        <option value="COP">COP</option>
+      </select>
       <input
         type="number"
-        placeholder="Alert price (USD)"
+        placeholder={`Alert price (${currency})`}
         value={alertPrice}
         onChange={(e) => onAlertPriceChange(e.target.value)}
         min="1"
@@ -123,7 +146,7 @@ export default function RouteCreateForm({
               <span className="text-muted">
                 Current best price:{" "}
                 <span className="font-bold text-foreground font-data">
-                  ${currentMarketPrice.toFixed(0)}
+                  {sym} {currentMarketPrice.toFixed(0)}
                 </span>
               </span>
               {alertPrice && (
@@ -132,13 +155,13 @@ export default function RouteCreateForm({
                   <span className="text-muted">
                     Your alert:{" "}
                     <span className="font-bold font-data">
-                      ${parseFloat(alertPrice).toFixed(0)}
+                      {sym} {parseFloat(alertPrice).toFixed(0)}
                     </span>
                   </span>
                   <span className="text-muted-foreground">|</span>
                   {savings != null && savings > 0 ? (
                     <span className="text-emerald-400 font-semibold">
-                      Potential savings: ${savings.toFixed(0)}
+                      Potential savings: {sym} {savings.toFixed(0)}
                     </span>
                   ) : (
                     <span className="text-amber-400">

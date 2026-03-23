@@ -103,6 +103,7 @@ describe("useRoutesModel", () => {
       destination: "EZE",
       departure_date: "2026-06-01",
       return_date: "2026-06-15",
+      currency: "BRL",
       alert_price: 300,
       check_frequency_minutes: 120,
     });

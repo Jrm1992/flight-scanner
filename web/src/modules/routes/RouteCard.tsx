@@ -7,6 +7,11 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { motion } from "framer-motion";
 
+const currencySymbols: Record<string, string> = {
+  BRL: "R$", USD: "$", EUR: "\u20AC", GBP: "\u00A3",
+  ARS: "ARS$", CLP: "CLP$", COP: "COP$",
+};
+
 interface RouteCardProps {
   route: Route;
   onViewHistory: () => void;
@@ -22,6 +27,7 @@ export default function RouteCard({
   onToggle,
   onDelete,
 }: RouteCardProps) {
+  const sym = currencySymbols[route.currency] || route.currency || "$";
   const priceBelow =
     route.current_price != null && route.current_price < route.alert_price;
 
@@ -52,7 +58,7 @@ export default function RouteCard({
               <p className="text-sm text-muted">
                 {formatDate(route.departure_date)}
                 {route.return_date && ` → ${formatDate(route.return_date)}`}
-                {" "}&middot; Alert at ${route.alert_price} &middot; Every{" "}
+                {" "}&middot; Alert at {sym} {route.alert_price} &middot; Every{" "}
                 {formatFrequency(route.check_frequency_minutes)}
               </p>
             </div>
@@ -61,7 +67,7 @@ export default function RouteCard({
           {route.current_price != null && (
             <div className="text-right mr-4">
               <p className="text-lg font-bold text-foreground font-data">
-                ${route.current_price.toFixed(0)}
+                {sym} {route.current_price.toFixed(0)}
                 {route.price_trend === "down" && (
                   <span className="text-emerald-400 ml-1">&darr;</span>
                 )}

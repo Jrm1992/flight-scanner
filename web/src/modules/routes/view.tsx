@@ -28,6 +28,8 @@ interface RoutesViewProps {
   onDepartureDateChange: (v: string) => void;
   returnDate: string;
   onReturnDateChange: (v: string) => void;
+  currency: string;
+  onCurrencyChange: (v: string) => void;
   alertPrice: string;
   onAlertPriceChange: (v: string) => void;
   frequency: string;
@@ -69,6 +71,8 @@ export default function RoutesView({
   onDepartureDateChange,
   returnDate,
   onReturnDateChange,
+  currency,
+  onCurrencyChange,
   alertPrice,
   onAlertPriceChange,
   frequency,
@@ -125,6 +129,8 @@ export default function RoutesView({
           onDepartureDateChange={onDepartureDateChange}
           returnDate={returnDate}
           onReturnDateChange={onReturnDateChange}
+          currency={currency}
+          onCurrencyChange={onCurrencyChange}
           alertPrice={alertPrice}
           onAlertPriceChange={onAlertPriceChange}
           frequency={frequency}

@@ -39,6 +39,8 @@ export default function Routes({
       onDepartureDateChange={model.setDepartureDate}
       returnDate={model.returnDate}
       onReturnDateChange={model.setReturnDate}
+      currency={model.currency}
+      onCurrencyChange={model.setCurrency}
       alertPrice={model.alertPrice}
       onAlertPriceChange={model.setAlertPrice}
       frequency={model.frequency}

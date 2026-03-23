@@ -36,6 +36,7 @@ export function useRoutesModel(monitorRequest?: MonitorRequest | null, onMonitor
   const [returnDate, setReturnDate] = useState("");
   const [alertPrice, setAlertPrice] = useState("");
   const [frequency, setFrequency] = useState("60");
+  const [currency, setCurrency] = useState("BRL");
 
   // Savings estimate
   const [estimateLoading, setEstimateLoading] = useState(false);
@@ -136,6 +137,7 @@ export function useRoutesModel(monitorRequest?: MonitorRequest | null, onMonitor
         destination,
         departure_date: departureDate,
         return_date: returnDate || undefined,
+        currency,
         alert_price: parseFloat(alertPrice),
         check_frequency_minutes: parseInt(frequency),
       });
@@ -235,6 +237,8 @@ export function useRoutesModel(monitorRequest?: MonitorRequest | null, onMonitor
     setAlertPrice,
     frequency,
     setFrequency,
+    currency,
+    setCurrency,
     estimateLoading,
     currentMarketPrice,
     savings,

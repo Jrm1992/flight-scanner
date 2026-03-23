@@ -48,6 +48,7 @@ const sampleRoute = {
   id: "r-1",
   origin: "GIG",
   destination: "SCL",
+  currency: "BRL",
   alert_price: 500,
   check_frequency_minutes: 60,
   status: "active" as const,
@@ -77,7 +78,7 @@ describe("RouteList", () => {
     await waitFor(() => {
       expect(screen.getByText(/GIG/)).toBeDefined();
       expect(screen.getByText(/SCL/)).toBeDefined();
-      expect(screen.getByText(/\$350/)).toBeDefined();
+      expect(screen.getByText(/R\$\s*350/)).toBeDefined();
     });
   });
 
@@ -120,6 +121,7 @@ describe("RouteList", () => {
         destination: "SCL",
         departure_date: "2026-08-21",
         return_date: undefined,
+        currency: "BRL",
         alert_price: 500,
         check_frequency_minutes: 60,
       });
