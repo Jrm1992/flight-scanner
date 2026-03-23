@@ -155,7 +155,7 @@ func (w *worker) tryCreateAlert(triggeredPrice float64) {
 		return
 	}
 
-	slog.Warn("price alert triggered", "origin", w.route.Origin, "destination", w.route.Destination,
+	slog.Info("price alert triggered", "origin", w.route.Origin, "destination", w.route.Destination,
 		"price", triggeredPrice, "threshold", w.route.AlertPrice, "alert_id", alert.ID)
 }
 
