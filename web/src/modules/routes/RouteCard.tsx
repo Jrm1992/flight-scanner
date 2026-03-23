@@ -39,15 +39,15 @@ export default function RouteCard({
       layout
     >
       <Card variant={priceBelow ? "highlight" : "default"}>
-        <Card.Body className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <Card.Body className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
             <span
               className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                 route.status === "active" ? "bg-emerald-500" : "bg-slate-600"
               }`}
             />
-            <div>
-              <p className="font-semibold text-lg text-foreground flex items-center gap-2">
+            <div className="min-w-0">
+              <p className="font-semibold text-lg text-foreground flex items-center gap-2 flex-wrap">
                 {route.origin} &rarr; {route.destination}
                 {priceBelow && (
                   <Badge variant="success" dot>
@@ -64,50 +64,52 @@ export default function RouteCard({
             </div>
           </div>
 
-          {route.current_price != null && (
-            <div className="text-right mr-4">
-              <p className="text-lg font-bold text-foreground font-data">
-                {sym} {route.current_price.toFixed(0)}
-                {route.price_trend === "down" && (
-                  <span className="text-emerald-400 ml-1">&darr;</span>
-                )}
-                {route.price_trend === "up" && (
-                  <span className="text-red-400 ml-1">&uarr;</span>
-                )}
-                {route.price_trend === "stable" && (
-                  <span className="text-slate-500 ml-1">&rarr;</span>
-                )}
-              </p>
-              {route.last_check_at && (
-                <p className="text-xs text-muted-foreground">
-                  {new Date(route.last_check_at).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            {route.current_price != null && (
+              <div className="sm:text-right">
+                <p className="text-lg font-bold text-foreground font-data whitespace-nowrap">
+                  {sym} {route.current_price.toFixed(0)}
+                  {route.price_trend === "down" && (
+                    <span className="text-emerald-400 ml-1">&darr;</span>
+                  )}
+                  {route.price_trend === "up" && (
+                    <span className="text-red-400 ml-1">&uarr;</span>
+                  )}
+                  {route.price_trend === "stable" && (
+                    <span className="text-slate-500 ml-1">&rarr;</span>
+                  )}
                 </p>
-              )}
-            </div>
-          )}
+                {route.last_check_at && (
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(route.last_check_at).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
 
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={onViewHistory}>
-              History
-            </Button>
-            <Button variant="secondary" size="sm" onClick={onEdit}>
-              Edit
-            </Button>
-            <Button
-              variant={route.status === "active" ? "secondary" : "success"}
-              size="sm"
-              onClick={onToggle}
-            >
-              {route.status === "active" ? "Pause" : "Resume"}
-            </Button>
-            <Button variant="danger" size="sm" onClick={onDelete}>
-              Delete
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="secondary" size="sm" onClick={onViewHistory}>
+                History
+              </Button>
+              <Button variant="secondary" size="sm" onClick={onEdit}>
+                Edit
+              </Button>
+              <Button
+                variant={route.status === "active" ? "secondary" : "success"}
+                size="sm"
+                onClick={onToggle}
+              >
+                {route.status === "active" ? "Pause" : "Resume"}
+              </Button>
+              <Button variant="danger" size="sm" onClick={onDelete}>
+                Delete
+              </Button>
+            </div>
           </div>
         </Card.Body>
       </Card>
