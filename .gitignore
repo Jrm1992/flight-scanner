@@ -5,3 +5,8 @@ testsearch
 .omc/
 
 flight-scanner-key.pem
+
+_actions
+_PipelineMapping
+_temp
+_tool
